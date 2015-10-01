@@ -490,11 +490,11 @@ ClientNetworkLayerTCP_connect(UA_ConnectionConfig localConf, char *endpointUrl, 
 
     size_t urlLength = strlen(endpointUrl);
     if(urlLength < 11 || urlLength >= 512) {
-        UA_LOG_WARNING((*logger), UA_LOGCATEGORY_COMMUNICATION, "Server url size invalid");
+        UA_LOG_WARNING((logger), UA_LOGCATEGORY_COMMUNICATION, "Server url size invalid");
         return connection;
     }
     if(strncmp(endpointUrl, "opc.tcp://", 10) != 0) {
-        UA_LOG_WARNING((*logger), UA_LOGCATEGORY_COMMUNICATION, "Server url does not begin with opc.tcp://");
+        UA_LOG_WARNING((logger), UA_LOGCATEGORY_COMMUNICATION, "Server url does not begin with opc.tcp://");
         return connection;
     }
 
@@ -507,7 +507,7 @@ ClientNetworkLayerTCP_connect(UA_ConnectionConfig localConf, char *endpointUrl, 
         }
     }
     if(port == 0) {
-        UA_LOG_WARNING((*logger), UA_LOGCATEGORY_COMMUNICATION, "Port invalid");
+        UA_LOG_WARNING((logger), UA_LOGCATEGORY_COMMUNICATION, "Port invalid");
         return connection;
     }
 
@@ -524,12 +524,12 @@ ClientNetworkLayerTCP_connect(UA_ConnectionConfig localConf, char *endpointUrl, 
 #else
     if((connection.sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 #endif
-        UA_LOG_WARNING((*logger), UA_LOGCATEGORY_COMMUNICATION, "Could not create socket");
+        UA_LOG_WARNING((logger), UA_LOGCATEGORY_COMMUNICATION, "Could not create socket");
         return connection;
     }
     struct hostent *server = gethostbyname(hostname);
     if(!server) {
-        UA_LOG_WARNING((*logger), UA_LOGCATEGORY_COMMUNICATION, "DNS lookup of %s failed", hostname);
+        UA_LOG_WARNING((logger), UA_LOGCATEGORY_COMMUNICATION, "DNS lookup of %s failed", hostname);
         return connection;
     }
     struct sockaddr_in server_addr;
@@ -540,7 +540,7 @@ ClientNetworkLayerTCP_connect(UA_ConnectionConfig localConf, char *endpointUrl, 
     connection.state = UA_CONNECTION_OPENING;
     if(connect(connection.sockfd, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
         ClientNetworkLayerClose(&connection);
-        UA_LOG_WARNING((*logger), UA_LOGCATEGORY_COMMUNICATION, "Connection failed");
+        UA_LOG_WARNING((logger), UA_LOGCATEGORY_COMMUNICATION, "Connection failed");
         return connection;
     }
 

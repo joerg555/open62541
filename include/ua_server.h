@@ -508,6 +508,13 @@ typedef struct UA_ServerNetworkLayer {
  */
 void UA_EXPORT UA_Server_addNetworkLayer(UA_Server *server, UA_ServerNetworkLayer *networkLayer);
 
+/**
+ * process binary message you received from socket
+ * dose not modify UA_ByteString, you have to alloc and free it youself.
+ * use of connection->getSendBuffer() and connection->sent() to answer Message
+ */
+void UA_Server_processBinaryMessage(UA_Server *server, UA_Connection *connection, const UA_ByteString *msg);
+
 /** @} */
 
 #ifndef __cplusplus /* the external nodestore does not work with c++ so far */

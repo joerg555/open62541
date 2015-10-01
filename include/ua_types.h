@@ -327,7 +327,7 @@ UA_StatusCode UA_EXPORT UA_String_copyprintf(char const fmt[], UA_String *dst, .
 
 /* DateTime */
 UA_DateTime UA_EXPORT * UA_DateTime_new(void);
-static UA_INLINE void UA_DateTime_init(UA_DateTime *p) { *p = (UA_DateTime)0.0f; }
+static UA_INLINE void UA_DateTime_init(UA_DateTime *p) { *p = 0; }
 void UA_EXPORT UA_DateTime_delete(UA_DateTime *p);
 static UA_INLINE void UA_DateTime_deleteMembers(UA_DateTime *p) { }
 static UA_INLINE UA_StatusCode UA_DateTime_copy(const UA_DateTime *src, UA_DateTime *dst) { *dst = *src; return UA_STATUSCODE_GOOD; }
@@ -350,7 +350,11 @@ UA_DateTimeStruct UA_EXPORT UA_DateTime_toStruct(UA_DateTime time);
 
 /* Guid */
 UA_Guid UA_EXPORT * UA_Guid_new(void);
-static UA_INLINE void UA_Guid_init(UA_Guid *p) { *p = (UA_Guid){0,0,0,{0,0,0,0,0,0,0,0}}; }
+static UA_INLINE void UA_Guid_init(UA_Guid *p) 
+{ 
+    //*p = (UA_Guid){0,0,0,{0,0,0,0,0,0,0,0}}; 
+    memset(p, 0, sizeof(*p));
+}
 void UA_EXPORT UA_Guid_delete(UA_Guid *p);
 static UA_INLINE void UA_Guid_deleteMembers(UA_Guid *p) { }
 static UA_INLINE UA_StatusCode UA_Guid_copy(const UA_Guid *src, UA_Guid *dst) { *dst = *src; return UA_STATUSCODE_GOOD; }
@@ -363,7 +367,7 @@ static UA_INLINE void UA_ByteString_init(UA_ByteString *p) { UA_String_init(p); 
 static UA_INLINE void UA_ByteString_delete(UA_ByteString *p) { UA_String_delete(p); }
 static UA_INLINE void UA_ByteString_deleteMembers(UA_ByteString *p) { UA_String_deleteMembers(p); }
 static UA_INLINE UA_StatusCode UA_ByteString_copy(const UA_ByteString *src, UA_ByteString *dst) { return UA_String_copy(src, dst); }
-#define UA_BYTESTRING_NULL (UA_ByteString) {-1, (UA_Byte*)0 }
+#define UA_BYTESTRING_NULL /*(UA_ByteString)*/ {-1, (UA_Byte*)0 }
 #define UA_ByteString_equal(string1, string2) UA_String_equal((const UA_String*) string1, (const UA_String*)string2)
 UA_StatusCode UA_EXPORT UA_ByteString_newMembers(UA_ByteString *p, UA_Int32 length); ///> Allocates memory of size length for the bytestring. The content is not set to zero.
 
