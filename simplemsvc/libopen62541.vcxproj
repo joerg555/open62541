@@ -1,0 +1,194 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\deps\pcg_basic.c" />
+    <ClCompile Include="..\src\client\ua_client.c" />
+    <ClCompile Include="..\src\server\ua_nodes.c" />
+    <ClCompile Include="..\src\server\ua_nodestore.c" />
+    <ClCompile Include="..\src\server\ua_nodestore_concurrent.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_securechannel_manager.c" />
+    <ClCompile Include="..\src\server\ua_server.c" />
+    <ClCompile Include="..\src\server\ua_server_addressspace.c" />
+    <ClCompile Include="..\src\server\ua_server_binary.c" />
+    <ClCompile Include="..\src\server\ua_server_worker.c" />
+    <ClCompile Include="..\src\server\ua_services_attribute.c" />
+    <ClCompile Include="..\src\server\ua_services_call.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_services_discovery.c" />
+    <ClCompile Include="..\src\server\ua_services_nodemanagement.c" />
+    <ClCompile Include="..\src\server\ua_services_securechannel.c" />
+    <ClCompile Include="..\src\server\ua_services_session.c" />
+    <ClCompile Include="..\src\server\ua_services_subscription.c" />
+    <ClCompile Include="..\src\server\ua_services_view.c" />
+    <ClCompile Include="..\src\server\ua_session_manager.c" />
+    <ClCompile Include="..\src\server\ua_subscription.c" />
+    <ClCompile Include="..\src\server\ua_subscription_manager.c" />
+    <ClCompile Include="..\src\ua_connection.c" />
+    <ClCompile Include="..\src\ua_securechannel.c" />
+    <ClCompile Include="..\src\ua_session.c" />
+    <ClCompile Include="..\src\ua_types.c" />
+    <ClCompile Include="..\src\ua_types_encoding_binary.c" />
+    <ClCompile Include="src_generated\ua_transport_generated.c" />
+    <ClCompile Include="src_generated\ua_types_generated.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\deps\pcg_basic.h" />
+    <ClInclude Include="..\deps\queue.h" />
+    <ClInclude Include="..\include\ua_client.h" />
+    <ClInclude Include="src_generated\ua_config.h" />
+    <ClInclude Include="src_generated\ua_nodeids.h" />
+    <ClInclude Include="src_generated\ua_transport_generated.h" />
+    <ClInclude Include="src_generated\ua_transport_generated_encoding_binary.h" />
+    <ClInclude Include="src_generated\ua_types_generated.h" />
+    <ClInclude Include="src_generated\ua_types_generated_encoding_binary.h" />
+    <ClInclude Include="..\include\ua_connection.h" />
+    <ClInclude Include="..\include\ua_log.h" />
+    <ClInclude Include="..\include\ua_server.h" />
+    <ClInclude Include="..\include\ua_statuscodes.h" />
+    <ClInclude Include="..\include\ua_types.h" />
+    <ClInclude Include="..\src\client\ua_client_internal.h" />
+    <ClInclude Include="..\src\server\ua_nodes.h" />
+    <ClInclude Include="..\src\server\ua_nodestore.h" />
+    <ClInclude Include="..\src\server\ua_securechannel_manager.h" />
+    <ClInclude Include="..\src\server\ua_server_internal.h" />
+    <ClInclude Include="..\src\server\ua_services.h" />
+    <ClInclude Include="..\src\server\ua_session_manager.h" />
+    <ClInclude Include="..\src\server\ua_subscription.h" />
+    <ClInclude Include="..\src\server\ua_subscription_manager.h" />
+    <ClInclude Include="..\src\ua_securechannel.h" />
+    <ClInclude Include="..\src\ua_session.h" />
+    <ClInclude Include="..\src\ua_types_encoding_binary.h" />
+    <ClInclude Include="..\src\ua_util.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\server\ua_nodestore_hash.inc" />
+    <None Include="..\tools\amalgamate.py" />
+    <None Include="..\tools\generate_datatypes.py" />
+    <None Include="..\tools\generate_nodeids.py" />
+    <None Include="..\tools\hex2bin.py" />
+    <None Include="..\tools\schema\Custom.Opc.Ua.Transport.bsd" />
+    <None Include="..\tools\schema\namespace0\README.md" />
+    <None Include="..\tools\schema\NodeIds.csv">
+      <FileType>Document</FileType>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Generate Python</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Generate Python</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">c:\Python27\python.exe $(MSBuildProjectDirectory)\..\tools\generate_datatypes.py --enable-subscription-types=1 --typedescriptions $(MSBuildProjectDirectory)\..\tools/schema/NodeIds.csv 0 $(MSBuildProjectDirectory)\..\tools/schema/Opc.Ua.Types.bsd $(MSBuildProjectDirectory)\..\src_generated\ua_types</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">c:\Python27\python.exe $(MSBuildProjectDirectory)\..\tools\generate_datatypes.py --enable-subscription-types=1 --typedescriptions $(MSBuildProjectDirectory)\..\tools/schema/NodeIds.csv 0 $(MSBuildProjectDirectory)\..\tools/schema/Opc.Ua.Types.bsd $(MSBuildProjectDirectory)\..\src_generated\ua_types</Command>
+    </None>
+    <None Include="..\tools\schema\Opc.Ua.Types.bsd">
+      <SubType>Designer</SubType>
+    </None>
+    <CustomBuild Include="win32generate.cmd">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">win32generate.cmd</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Genereate Win32 config and OPC-UA source</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">src_generated\ua_config.h;src_generated\ua_nodeids.h;src_generated\ua_transport_generated.c;src_generated\ua_transport_generated.h;src_generated\ua_types_generated.c;src_generated\ua_types_generated.h</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">win32generate.cmd</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Genereate Win32 config and OPC-UA source</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">src_generated\ua_config.h;src_generated\ua_nodeids.h;src_generated\ua_transport_generated.c;src_generated\ua_transport_generated.h;src_generated\ua_types_generated.c;src_generated\ua_types_generated.h</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\tools\schema\NodeIds.csv;..\tools\schema\Opc.Ua.Types.bsd;..\tools\schema\Custom.Opc.Ua.Transport.bsd;..\tools\generate_datatypes.py;..\tools\generate_nodeids.py;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\tools\schema\NodeIds.csv;..\tools\schema\Opc.Ua.Types.bsd;..\tools\schema\Custom.Opc.Ua.Transport.bsd;..\tools\generate_datatypes.py;..\tools\generate_nodeids.py;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+    <None Include="win32amalgamate.cmd" />
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="..\tools\schema\namespace0\Opc.Ua.NodeSet2.Minimal.xml" />
+    <Xml Include="..\tools\schema\namespace0\Opc.Ua.NodeSet2.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\CMakeLists.txt" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{784E16DE-3350-4059-B2B5-B914A73EFF30}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>libopen62541</RootNamespace>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+    <UseOfMfc>Static</UseOfMfc>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+    <UseOfMfc>Static</UseOfMfc>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);..\include;$(ProjectDir)\src_generated;..\src;..\deps</IncludePath>
+    <IntDir>$(Configuration)\lib\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);..\include;$(ProjectDir)\src_generated;..\src;..\deps</IncludePath>
+    <IntDir>$(Configuration)\lib\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DisableSpecificWarnings>4100;4996;4214;4127</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DisableSpecificWarnings>4100;4996;4214;4127</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

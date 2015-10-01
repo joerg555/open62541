@@ -1,0 +1,10 @@
+/src_generated
+/Debug
+/Release
+*.sdf
+*.suo
+*.aps
+*.bak
+/open62541.h
+/open62541.c
+/ipch

@@ -1,0 +1,247 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="src\server">
+      <UniqueIdentifier>{58e1556c-a6a9-4fd8-a65b-cbdd4244a0da}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src_generated">
+      <UniqueIdentifier>{d116a5d9-41d0-42ec-b839-e08a5c202cfe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\client">
+      <UniqueIdentifier>{ae1ea337-0be9-4f5b-8a66-03dc68652a31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tools">
+      <UniqueIdentifier>{fc8fc370-8979-4365-b3b1-1bd78ad335f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tools\schema">
+      <UniqueIdentifier>{18e096d1-d8c0-40d6-b6dc-01f1dca9674e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tools\schema\pyUANamespace">
+      <UniqueIdentifier>{cf92cbcb-993c-45f8-b97f-bb300ffa3e0b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="deps">
+      <UniqueIdentifier>{734052f2-bfc3-46aa-a775-15308c89e6c1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\server\ua_nodes.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_nodestore.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_nodestore_concurrent.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_securechannel_manager.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_server.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_server_addressspace.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_server_binary.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_server_worker.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_services_attribute.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_services_call.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_services_discovery.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_services_nodemanagement.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_services_securechannel.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_services_session.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_services_subscription.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_services_view.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_session_manager.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_subscription.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\server\ua_subscription_manager.c">
+      <Filter>src\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ua_connection.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ua_securechannel.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ua_session.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ua_types.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ua_types_encoding_binary.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\client\ua_client.c">
+      <Filter>src\client</Filter>
+    </ClCompile>
+    <ClCompile Include="src_generated\ua_transport_generated.c">
+      <Filter>src_generated</Filter>
+    </ClCompile>
+    <ClCompile Include="src_generated\ua_types_generated.c">
+      <Filter>src_generated</Filter>
+    </ClCompile>
+    <ClCompile Include="..\deps\pcg_basic.c">
+      <Filter>deps</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\server\ua_nodes.h">
+      <Filter>src\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\server\ua_nodestore.h">
+      <Filter>src\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\server\ua_securechannel_manager.h">
+      <Filter>src\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\server\ua_server_internal.h">
+      <Filter>src\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\server\ua_services.h">
+      <Filter>src\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\server\ua_session_manager.h">
+      <Filter>src\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\server\ua_subscription.h">
+      <Filter>src\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\server\ua_subscription_manager.h">
+      <Filter>src\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ua_securechannel.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ua_session.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ua_types_encoding_binary.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ua_util.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\client\ua_client_internal.h">
+      <Filter>src\client</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\ua_client.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\ua_connection.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\ua_log.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\ua_server.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\ua_statuscodes.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\ua_types.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="src_generated\ua_config.h">
+      <Filter>src_generated</Filter>
+    </ClInclude>
+    <ClInclude Include="src_generated\ua_nodeids.h">
+      <Filter>src_generated</Filter>
+    </ClInclude>
+    <ClInclude Include="src_generated\ua_transport_generated.h">
+      <Filter>src_generated</Filter>
+    </ClInclude>
+    <ClInclude Include="src_generated\ua_transport_generated_encoding_binary.h">
+      <Filter>src_generated</Filter>
+    </ClInclude>
+    <ClInclude Include="src_generated\ua_types_generated.h">
+      <Filter>src_generated</Filter>
+    </ClInclude>
+    <ClInclude Include="src_generated\ua_types_generated_encoding_binary.h">
+      <Filter>src_generated</Filter>
+    </ClInclude>
+    <ClInclude Include="..\deps\pcg_basic.h">
+      <Filter>deps</Filter>
+    </ClInclude>
+    <ClInclude Include="..\deps\queue.h">
+      <Filter>deps</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\server\ua_nodestore_hash.inc">
+      <Filter>src\server</Filter>
+    </None>
+    <None Include="..\tools\amalgamate.py">
+      <Filter>tools</Filter>
+    </None>
+    <None Include="..\tools\generate_datatypes.py">
+      <Filter>tools</Filter>
+    </None>
+    <None Include="..\tools\generate_nodeids.py">
+      <Filter>tools</Filter>
+    </None>
+    <None Include="..\tools\hex2bin.py">
+      <Filter>tools</Filter>
+    </None>
+    <None Include="..\tools\schema\Custom.Opc.Ua.Transport.bsd">
+      <Filter>tools\schema</Filter>
+    </None>
+    <None Include="..\tools\schema\Opc.Ua.Types.bsd">
+      <Filter>tools\schema</Filter>
+    </None>
+    <None Include="..\tools\schema\namespace0\README.md">
+      <Filter>tools\schema\pyUANamespace</Filter>
+    </None>
+    <None Include="..\tools\schema\NodeIds.csv">
+      <Filter>tools\schema</Filter>
+    </None>
+    <None Include="win32amalgamate.cmd" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="win32generate.cmd" />
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="..\tools\schema\namespace0\Opc.Ua.NodeSet2.Minimal.xml">
+      <Filter>tools\schema\pyUANamespace</Filter>
+    </Xml>
+    <Xml Include="..\tools\schema\namespace0\Opc.Ua.NodeSet2.xml">
+      <Filter>tools\schema\pyUANamespace</Filter>
+    </Xml>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\CMakeLists.txt" />
+  </ItemGroup>
+</Project>

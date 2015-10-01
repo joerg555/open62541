@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.40629.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libopen62541", "libopen62541.vcxproj", "{784E16DE-3350-4059-B2B5-B914A73EFF30}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "server_repeated_job", "server_repeated_job.vcxproj", "{C4C76F50-BCD6-406A-BBD6-A59BD35C968D}"
+	ProjectSection(ProjectDependencies) = postProject
+		{784E16DE-3350-4059-B2B5-B914A73EFF30} = {784E16DE-3350-4059-B2B5-B914A73EFF30}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "client", "client.vcxproj", "{E1A13AD1-4FFC-4BC0-B2E9-99057E572921}"
+	ProjectSection(ProjectDependencies) = postProject
+		{784E16DE-3350-4059-B2B5-B914A73EFF30} = {784E16DE-3350-4059-B2B5-B914A73EFF30}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jsm_server", "jsm_server.vcxproj", "{3D36AB27-C1D5-4809-9425-5E060B05A4AE}"
+	ProjectSection(ProjectDependencies) = postProject
+		{784E16DE-3350-4059-B2B5-B914A73EFF30} = {784E16DE-3350-4059-B2B5-B914A73EFF30}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MfcUaServer", "MfcUaServer\MfcUaServer.vcxproj", "{CA4EFAD9-96FD-4D19-A172-F066FD0286C4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{784E16DE-3350-4059-B2B5-B914A73EFF30}.Debug|Win32.ActiveCfg = Debug|Win32
+		{784E16DE-3350-4059-B2B5-B914A73EFF30}.Debug|Win32.Build.0 = Debug|Win32
+		{784E16DE-3350-4059-B2B5-B914A73EFF30}.Release|Win32.ActiveCfg = Release|Win32
+		{784E16DE-3350-4059-B2B5-B914A73EFF30}.Release|Win32.Build.0 = Release|Win32
+		{C4C76F50-BCD6-406A-BBD6-A59BD35C968D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C4C76F50-BCD6-406A-BBD6-A59BD35C968D}.Debug|Win32.Build.0 = Debug|Win32
+		{C4C76F50-BCD6-406A-BBD6-A59BD35C968D}.Release|Win32.ActiveCfg = Release|Win32
+		{C4C76F50-BCD6-406A-BBD6-A59BD35C968D}.Release|Win32.Build.0 = Release|Win32
+		{E1A13AD1-4FFC-4BC0-B2E9-99057E572921}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E1A13AD1-4FFC-4BC0-B2E9-99057E572921}.Debug|Win32.Build.0 = Debug|Win32
+		{E1A13AD1-4FFC-4BC0-B2E9-99057E572921}.Release|Win32.ActiveCfg = Release|Win32
+		{E1A13AD1-4FFC-4BC0-B2E9-99057E572921}.Release|Win32.Build.0 = Release|Win32
+		{3D36AB27-C1D5-4809-9425-5E060B05A4AE}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3D36AB27-C1D5-4809-9425-5E060B05A4AE}.Debug|Win32.Build.0 = Debug|Win32
+		{3D36AB27-C1D5-4809-9425-5E060B05A4AE}.Release|Win32.ActiveCfg = Release|Win32
+		{3D36AB27-C1D5-4809-9425-5E060B05A4AE}.Release|Win32.Build.0 = Release|Win32
+		{CA4EFAD9-96FD-4D19-A172-F066FD0286C4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CA4EFAD9-96FD-4D19-A172-F066FD0286C4}.Debug|Win32.Build.0 = Debug|Win32
+		{CA4EFAD9-96FD-4D19-A172-F066FD0286C4}.Release|Win32.ActiveCfg = Release|Win32
+		{CA4EFAD9-96FD-4D19-A172-F066FD0286C4}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
