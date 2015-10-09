@@ -10,16 +10,49 @@ class UaClientData : public CAsyncSocket, UA_Connection
     friend class SrvSocket;
 public:
     UaClientData *m_pNext;
-    CString m_strIP;
-    UINT    m_uPort;
+    // Partner Name / Port
+    CString m_sPeerName;
+    UINT    m_uPeerPort;
 protected:
     //
     class UaServer *m_pSrv;
     DWORD m_tLastSend;
     int m_iSendErrCnt;
-    UA_ByteString m_RecBuf;
-    int m_iRecBufLen;
-    int m_iRecLen;
+    class RecBuf
+    {
+    public:
+        UA_ByteString m_Buf;
+        UA_UInt32 m_uBufLen;
+        UA_UInt32 m_uRecLen;
+    public:
+        RecBuf()
+        {
+            m_uBufLen=0;
+        }
+        ~RecBuf()
+        {
+            Free();
+        }
+        void Init(UA_UInt32 uBufSize)
+        {
+            m_uBufLen = uBufSize;
+            m_Buf.data = (UA_Byte *)malloc(m_uBufLen);
+            Reset();
+        }
+        void Reset()
+        {
+            m_Buf.length = 0;    // Alles frei
+            m_uRecLen = 0;
+        }
+        void Free()
+        {
+            if (m_uBufLen > 0)
+            {
+                free(m_Buf.data);
+                m_uBufLen = 0;
+            }
+        }
+    } m_Rec;
 public:
     UaClientData(UaServer *m_pSrv);
     virtual ~UaClientData();

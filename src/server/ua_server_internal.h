@@ -74,6 +74,8 @@ struct UA_Server {
 #endif
 };
 
+void UA_Server_processBinaryMessage(UA_Server *server, UA_Connection *connection, const UA_ByteString *msg);
+
 UA_AddNodesResult UA_Server_addNodeWithSession(UA_Server *server, UA_Session *session, UA_Node *node,
                                                const UA_ExpandedNodeId parentNodeId,
                                                const UA_NodeId referenceTypeId);
@@ -93,5 +95,9 @@ UA_StatusCode addOneWayReferenceWithSession(UA_Server *server, UA_Session *sessi
 UA_StatusCode UA_Server_addDelayedJob(UA_Server *server, UA_Job job);
 
 void UA_Server_deleteAllRepeatedJobs(UA_Server *server);
+
+/* Returns the timeout until the next repeated job in microsec */
+UA_UInt32 processRepeatedJobs(UA_Server *server);
+UA_UInt32 nextRepeatedJob(UA_Server *server, UA_DateTime current);
 
 #endif /* UA_SERVER_INTERNAL_H_ */

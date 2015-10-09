@@ -65,6 +65,10 @@ void CMfcUaServerDlg::DoDataExchange(CDataExchange* pDX)
     DDX_Text(pDX, IDC_VAL1, m_val[0].dblVal);
     DDX_Text(pDX, IDC_VAL2, m_val[1].dblVal);
     DDX_Text(pDX, IDC_VAL3, m_val[2].dblVal);
+    DDX_Check(pDX, IDC_CHKTRACE, m_UatraceTrace[0]);
+    DDX_Check(pDX, IDC_CHKDEBUG, m_UatraceTrace[1]);
+    DDX_Check(pDX, IDC_CHKINFO, m_UatraceTrace[2]);
+    DDX_Check(pDX, IDC_CHKWARN, m_UatraceTrace[3]);
 }
 
 BEGIN_MESSAGE_MAP(CMfcUaServerDlg, CDialogEx)
@@ -76,6 +80,10 @@ BEGIN_MESSAGE_MAP(CMfcUaServerDlg, CDialogEx)
     ON_BN_CLICKED(IDC_STOP, &CMfcUaServerDlg::OnBnClickedStop)
     ON_WM_DESTROY()
     ON_WM_TIMER()
+    ON_BN_CLICKED(IDC_CHKTRACE, &CMfcUaServerDlg::OnBnClickedChkTrace)
+    ON_BN_CLICKED(IDC_CHKDEBUG, &CMfcUaServerDlg::OnBnClickedChkTrace)
+    ON_BN_CLICKED(IDC_CHKINFO, &CMfcUaServerDlg::OnBnClickedChkTrace)
+    ON_BN_CLICKED(IDC_CHKWARN, &CMfcUaServerDlg::OnBnClickedChkTrace)
 END_MESSAGE_MAP()
 
 
@@ -83,7 +91,7 @@ END_MESSAGE_MAP()
 
 BOOL CMfcUaServerDlg::OnInitDialog()
 {
-	CDialogEx::OnInitDialog();
+    CDialogEx::OnInitDialog();
 
 	// Hinzufügen des Menübefehls "Info..." zum Systemmenü.
 
@@ -110,8 +118,8 @@ BOOL CMfcUaServerDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// Großes Symbol verwenden
 	SetIcon(m_hIcon, FALSE);		// Kleines Symbol verwenden
 
+    m_UaServer.SrvStart(this, 334);
     CheckEnable();
-    SetTimer(333, 200, NULL);
 	return TRUE;
 }
 
@@ -175,7 +183,7 @@ void CMfcUaServerDlg::OnBnClickedSave()
 
 void CMfcUaServerDlg::OnBnClickedStart()
 {
-    m_UaServer.SrvReStart();
+    m_UaServer.SrvReStart(this, 334);
     CheckEnable();
 }
 
@@ -198,12 +206,19 @@ void CMfcUaServerDlg::CheckEnable()
     bool bOn = m_UaServer.bIsOn();
     GetDlgItem(IDC_START)->EnableWindow(!bOn);
     GetDlgItem(IDC_STOP)->EnableWindow(bOn);
-
 }
 
 void CMfcUaServerDlg::OnTimer(UINT_PTR nIDEvent)
 {
-    if (nIDEvent == 333)
+    if (nIDEvent == 334)
+    {
         m_UaServer.SrvTimerCheck();
+    }
     CDialogEx::OnTimer(nIDEvent);
+}
+
+
+void CMfcUaServerDlg::OnBnClickedChkTrace()
+{
+    UpdateData(TRUE);
 }

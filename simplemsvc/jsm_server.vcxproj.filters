@@ -48,6 +48,9 @@
     <ClCompile Include="src\UaSystemW32.c">
       <Filter>Quelldateien</Filter>
     </ClCompile>
+    <ClCompile Include="src\jsm_server.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\ua_client.h">

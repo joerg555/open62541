@@ -229,6 +229,9 @@
       <Filter>tools\schema</Filter>
     </None>
     <None Include="win32amalgamate.cmd" />
+    <None Include="..\include\ua_config.h.in">
+      <Filter>include</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="win32generate.cmd" />

@@ -4,8 +4,11 @@
 #include "StdAfx.h"
 #include "UaServer.h"
 #include "UaClientData.h"
-// this dos not work
-// #include "../../src/server/ua_server_internal.h"
+extern "C"
+{
+    #include "../../src/server/ua_server_internal.h"
+}
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
@@ -31,12 +34,9 @@ UaClientData::UaClientData(UaServer *pSrv)
     m_pSrv = pSrv;
     m_pNext = NULL;
     m_iSendErrCnt = 0;
-    FreeEntry(_T(""));
-    m_iRecBufLen = pSrv->m_UaConf.maxMessageSize;
-    m_RecBuf.data = (UA_Byte *)malloc(m_iRecBufLen);
-    m_RecBuf.length = 0;    // Alles frei
-    m_iRecLen = 0;
+    m_Rec.Init(pSrv->m_UaConf.maxMessageSize);
     ConnectionInit();
+    //FreeEntry(_T(""));
 }
 
 void UaClientData::ConnectionInit()
@@ -55,7 +55,6 @@ void UaClientData::ConnectionInit()
 UaClientData::~UaClientData()
 {
     OnClose(0);
-    free(m_RecBuf.data);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -65,39 +64,49 @@ void UaClientData::OnReceive(int /*nErrorCode*/)
 	CheckReceive();
 }
 
+#define UABYTE2ULONG(d, off) ((d)[off] | ((d)[off+1] << 8) | ((d)[off+2] << 16) | ((d)[off+3] << 24));
 
 int UaClientData::CheckReceive()
 {
 	// get the bytes....
 
     int nBytes, nRest;
+    bool bCheckJobs = false;
     while (true)
     {
-        nRest = m_iRecBufLen - m_iRecLen;
-        nBytes = Receive(m_RecBuf.data + m_iRecLen, nRest);
+        nRest = m_Rec.m_uBufLen - m_Rec.m_uRecLen;
+        nBytes = Receive(m_Rec.m_Buf.data + m_Rec.m_uRecLen, nRest);
         if (nBytes <= 0)
-        {
             break;
-        }
-        m_iRecLen += nBytes;
-        if (m_iRecLen >= 8)
+        m_Rec.m_uRecLen += nBytes;
+        while (m_Rec.m_uRecLen >= 8)
         {
-            UA_Int32 n = m_RecBuf.data[4] | (m_RecBuf.data[5] << 8) | (m_RecBuf.data[6] << 8) | (m_RecBuf.data[7] << 24);
-            if (m_iRecLen >= n)
+            //UA_Int32 uType = UABYTE2ULONG(m_Rec.m_Buf.data, 0);
+            UA_UInt32 n = UABYTE2ULONG(m_Rec.m_Buf.data, 4);
+            if (m_Rec.m_Buf.data[3] != 'F' || n > localConf.maxMessageSize)
             {
-                m_RecBuf.length = n;
-                UA_Server_processBinaryMessage(m_pSrv->m_pUaServer, this, &m_RecBuf);
-                m_iRecLen -= n;
-                if (m_iRecLen > 0)
-                {
-                    // rest for next packet
-                    memcpy(m_RecBuf.data, m_RecBuf.data + n, m_iRecLen);
-                }
+                // Bad telegramm Bye
+                CloseConnection("bad telegrammformat");
+            }
+            if (m_Rec.m_uRecLen < n)
+                break;
+            m_Rec.m_Buf.length = n;
+            UA_Server_processBinaryMessage(m_pSrv->m_pUaServer, this, &m_Rec.m_Buf);
+            bCheckJobs = true;
+            if (m_Rec.m_uRecLen == 0)
+                return 0;   // Closed
+            m_Rec.m_uRecLen -= n;
+            if (m_Rec.m_uRecLen > 0)
+            {
+                // rest for next packet
+                memcpy(m_Rec.m_Buf.data, m_Rec.m_Buf.data + n, m_Rec.m_uRecLen);
             }
         }
-        if (m_iRecLen <= 0)
+        if (m_Rec.m_uRecLen <= 0)
             break;
     }
+    if (bCheckJobs)
+        m_pSrv->SrvCheckJobs();
     return 0;
 }
 
@@ -135,7 +144,7 @@ void UaClientData::CloseConnection(LPCTSTR strReason)
     {
         if (strReason[0])
         {
-            TRACE_MSG((T_2,_T("IP %s Disconnect: %s"),m_strIP,strReason));
+            UaLogMsg(UA_LOGLEVEL_ERROR, UA_LOGCATEGORY_SERVER, "IP %s Disconnect: %s", m_sPeerName, strReason);
         }
     }
     Close();
@@ -145,12 +154,16 @@ void UaClientData::Close()
 {
     if (m_hSocket != INVALID_SOCKET)
     {
+        UaLogMsg(UA_LOGLEVEL_INFO, UA_LOGCATEGORY_SERVER, "Close %s:%u", m_sPeerName, m_uPeerPort);
         CAsyncSocket::Close();
     }
     else
     {
         CAsyncSocket::Close();
     }
+    UA_Connection_detachSecureChannel(this);
+    UA_Connection_deleteMembers(this);
+    m_Rec.Reset();
 }
 
 void UaClientData::TimerCheck()

@@ -42,4 +42,8 @@ public:
     afx_msg void OnBnClickedStop();
     afx_msg void OnDestroy();
     afx_msg void OnTimer(UINT_PTR nIDEvent);
+    afx_msg void OnBnClickedChkTrace();
+    afx_msg void OnBnClickedChkDebug();
+    afx_msg void OnBnClickedChkInfo();
+    afx_msg void OnBnClickedChkWarn();
 };

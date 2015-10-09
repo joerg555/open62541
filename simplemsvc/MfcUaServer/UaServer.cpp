@@ -3,6 +3,10 @@
 
 #include "StdAfx.h"
 #include "UaServer.h"
+extern "C"
+{
+    #include "../../src/server/ua_server_internal.h"
+}
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -10,20 +14,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 static const TCHAR __MODNAME[] = _T("UaServer");
-
-#undef UA_STRING_NULL
-
-const UA_String UA_STRING_NULL =
-{
-    -1, NULL
-};
-
-#undef UA_NODEID_NULL
-
-const UA_NodeId UA_NODEID_NULL =
-{
-    0, UA_NODEIDTYPE_NUMERIC, { 0 }
-};
 
 #define UA_STRINGCONST(s) {sizeof(s)-1, (UA_Byte*)s }
 
@@ -120,6 +110,8 @@ UaServer::UaServer()
     m_uListenport = 16664u;
     m_tLiveCheck = 60 * 60 * 1000l;
     m_pCliList = NULL;
+    m_pTimerWnd = 0;
+    m_iTimerID = 0;
 }
 
 UaServer::~UaServer()
@@ -127,21 +119,34 @@ UaServer::~UaServer()
     SrvStop();
 }
 
-static void UaLogMsg(UA_LogLevel level, UA_LogCategory category, const char *msg, ...) 
+BOOL m_UatraceTrace[6] = { 0, 1, 1, 1, 1, 1 };
+
+void UaLogMsg(UA_LogLevel level, UA_LogCategory category, const char *msg, ...) 
 {
-    printf(":");
-    //print_time();
-    va_list ap;
-    va_start(ap, msg);
-    //printf("] %s/%s\t", LogLevelNames[level], LogCategoryNames[category]);
-    vprintf(msg, ap);
-    printf("\n");
-    va_end(ap);
+    char msgBuf[300];
+    va_list args;
+    switch (level)
+    {
+    case UA_LOGLEVEL_TRACE: if (!m_UatraceTrace[0]) return; break;
+    case UA_LOGLEVEL_DEBUG: if (!m_UatraceTrace[1]) return; break;
+    case UA_LOGLEVEL_INFO: if (!m_UatraceTrace[2]) return; break;
+    case UA_LOGLEVEL_WARNING: if (!m_UatraceTrace[3]) return; break;
+    case UA_LOGLEVEL_ERROR: if (!m_UatraceTrace[4]) return; break;
+    case UA_LOGLEVEL_FATAL: 
+    default:                if (!m_UatraceTrace[5]) return; break;
+    }
+    va_start(args, msg);
+    vsnprintf_s(msgBuf, _countof(msgBuf), _TRUNCATE, msg, args);
+    strcat_s(msgBuf, _countof(msgBuf), "\n");
+    va_end(args);
+    TRACE(msgBuf);
 }
 
-bool UaServer::SrvStart()
+bool UaServer::SrvStart(CWnd *pTimerWnd, int iTimerID)
 {
 	bool bOK = false;
+    m_pTimerWnd = pTimerWnd;
+    m_iTimerID = iTimerID;
     // 
     m_pUaServer = UA_Server_new(UA_ServerConfig_standard);
     m_pUa_logger = &m_Ualogger;
@@ -186,6 +191,8 @@ bool UaServer::SrvStart()
 	}
     Listen();
     TRACE_MSG((T_2, _T("Listen Port: %d"), m_uListenPort));
+    if (m_pTimerWnd)
+        m_pTimerWnd->SetTimer(m_iTimerID, 2000, NULL);
     return true;
 }
 
@@ -199,35 +206,40 @@ void UaServer::Init(UA_ConnectionConfig ConConfig, UA_UInt32 uListenPort)
     deleteMembers = Ua_deleteMembers;
 }
 
-bool UaServer::SrvReStart()
+bool UaServer::SrvReStart(CWnd *pTimerWnd, int iTimerID)
 {
     Close();
-    return SrvStart();
+    return SrvStart(pTimerWnd, iTimerID);
 }
 
 void UaServer::SrvStop()
 {
     Close();
-    if (m_pCliList == NULL)
-        return; // Nichts zu tun
-
-    UaClientData *pCli, *pNext;
-
-    // Liste sofort sperren
-    pCli = m_pCliList;
-    m_pCliList = NULL;
-    for ( ; pCli;)
+    if (m_pUaServer)
     {
-        pNext = pCli->m_pNext;
-        if (pNext == NULL)
-            break;
-        pCli = pNext;
+        UA_ServerNetworkLayer *pSrvNetLayer = m_pUaServer->networkLayersSize > 0 ? m_pUaServer->networkLayers[0] : NULL;
+        m_pUaServer->networkLayersSize = 0;
+        UA_Server_delete(m_pUaServer);
+        if (pSrvNetLayer)
+        {
+            // destroy our networklayer
+            UA_String_deleteMembers(&pSrvNetLayer->discoveryUrl);
+            pSrvNetLayer->deleteMembers(pSrvNetLayer);
+            // have own netlayer don't delete
+            //UA_free(pSrvNetLayer);
+        }
+        m_pUaServer = NULL;
+    }
+    if (m_pTimerWnd != NULL)
+    {
+        m_pTimerWnd->KillTimer(m_iTimerID);
+        m_pTimerWnd = NULL;
     }
 }
 
 
 
-bool UaServer::NotifyConnect(CAsyncSocket *pNewCli, const TCHAR *strIP, UINT uPort)
+bool UaServer::NotifyConnect(CAsyncSocket *pNewCli, const TCHAR *sPeerName, UINT uPeerPort)
 {
     UaClientData *pCli;
     // leeren Eintrag suchen oder neuen Eintrag hinzufügen
@@ -240,18 +252,18 @@ bool UaServer::NotifyConnect(CAsyncSocket *pNewCli, const TCHAR *strIP, UINT uPo
         return false;
     }
     // Neue Verbindung
+    pCli->m_sPeerName = sPeerName;
+    pCli->m_uPeerPort = uPeerPort;
     pCli->Attach(pNewCli->Detach());
     pCli->AsyncSelect(FD_READ | FD_CLOSE);
-    pCli->m_uPort = uPort;
-    pCli->m_strIP = strIP;
-    TRACE_MSG((T_3, _T("IP %s:%u Connected"), pCli->m_strIP, pCli->m_uPort));
+    TRACE_MSG((T_3, _T("IP %s:%u Connected"), pCli->m_sPeerName, pCli->m_uPeerPort));
     pCli->AfterConnect();
     return true;
 }
 
 void UaServer::NotifyDisconn(UaClientData *pCli)
 {
-    pCli->FreeEntry(_T("no Webconn"));
+    pCli->FreeEntry(_T("disconnect"));
 }
 
 UaClientData *UaServer::pAddUaClient()
@@ -289,18 +301,33 @@ UaClientData *UaServer::pGetUaClient(SOCKET so)
 }
 
 //
-// nach 10 Sekunden alle Client ohne IdentNr trennen
+// nach 10 Sekunden alle Client ohne daten trennen
 //
 void UaServer::SrvTimerCheck()
 {
     UaClientData *pCli;
     int i;
+    uint32_t tNetJob = 2000;
     for (pCli = m_pCliList, i = 0; pCli; pCli = pCli->m_pNext, i++)
     {
         pCli->TimerCheck();
     }
+    if (m_pTimerWnd == NULL)
+        return;
+    if (m_pUaServer != NULL)
+        tNetJob = processRepeatedJobs(m_pUaServer) / 1000;
+    m_pTimerWnd->SetTimer(m_iTimerID, tNetJob, NULL);
 }
 
+void UaServer::SrvCheckJobs()
+{
+    uint32_t tNetJob = 2000;
+    if (m_pTimerWnd == NULL)
+        return;
+    if (m_pUaServer != NULL)
+        tNetJob = nextRepeatedJob(m_pUaServer, UA_DateTime_now()) / 1000;
+    m_pTimerWnd->SetTimer(m_iTimerID, tNetJob, NULL);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Member-Funktion SrvSocket 
@@ -345,6 +372,7 @@ void UaServer::OnAccept(int /*nErrorCode*/)
 			strPeerName.Format(_T("%d.%d.%d.%d"), sockAddr.in4.sin_addr.S_un.S_un_b.s_b1, sockAddr.in4.sin_addr.S_un.S_un_b.s_b2, sockAddr.in4.sin_addr.S_un.S_un_b.s_b3, sockAddr.in4.sin_addr.S_un.S_un_b.s_b4);
 			uPort = ntohs(sockAddr.in4.sin_port);
 		}
+        UaLogMsg(UA_LOGLEVEL_INFO, UA_LOGCATEGORY_SERVER, "Accept %s:%u", strPeerName, uPort);
         NotifyConnect(&req, strPeerName, uPort);
     }
 }
@@ -370,56 +398,91 @@ void UaServer::Deletemembers()
 {
     UaNetLayer::Deletemembers();
     UaClientData *pNext;
-    while (m_pCliList != NULL);
+    while (m_pCliList != NULL)
     {
         m_pCliList->CloseConn();
         pNext = m_pCliList->m_pNext;
-            delete m_pCliList;
+        delete m_pCliList;
         m_pCliList = pNext;
     }
 }
 
-struct AddRepeatedJob 
-{
-    UA_Job job;
-    UA_Guid jobid;
-    UA_UInt32 interval;
-};
-
 static UA_UInt32 random_seed;
 
-extern "C"
-{
+//UA_StatusCode UaServer::AddRepeatedJob(UA_Job job, UA_UInt32 IntervalMs, UA_Guid *pJobId)
+//{
+//    /* the interval needs to be at least 5ms */
+//    if (IntervalMs < 5)
+//        return UA_STATUSCODE_BADINTERNALERROR;
+//    RepeatedJob *pJob;
+//    int i;
+//    for (i = 0, pJob = m_JobList.GetData(); true; i++, pJob++)
+//    {
+//        if (i >= m_JobList.GetCount())
+//        {
+//            int n = m_JobList.GetCount();
+//            m_JobList.SetSize(n + 1);
+//            pJob = m_JobList.GetData() + n;
+//            break;
+//        }
+//        if (pJob->msInterval == 0)
+//            break;
+//    }
+//    pJob->msInterval = IntervalMs;
+//    pJob->tStart = GetTickCount();
+//    pJob->job = job;
+//    if (pJobId)
+//    {
+//        if (random_seed == 0)
+//            random_seed = (UA_UInt32)UA_DateTime_now();
+//        pJob->Guid = UA_Guid_random(&random_seed);
+//        *pJobId = pJob->Guid;
+//    }
+//    else
+//    {
+//        UA_Guid_init(&pJob->Guid);
+//    }
+//    //addRepeatedJob(server, &arw);
+//    return UA_STATUSCODE_GOOD;
+//}
+//
+//UA_StatusCode UaServer::RemoveRepeatedJob(UA_Guid jobId)
+//{
+//    RepeatedJob *pJob;
+//    int i;
+//    for (i = 0, pJob = m_JobList.GetData(); i < m_JobList.GetCount(); i++, pJob++)
+//    {
+//        if (!UA_Guid_equal(&jobId, &pJob->Guid))
+//        {
+//            pJob->msInterval = 0;
+//            UA_Guid_init(&pJob->Guid);
+//            return UA_STATUSCODE_GOOD;
+//        }
+//    }
+//    return UA_STATUSCODE_GOOD;
+//}
+//
+//UA_StatusCode UA_Server_addRepeatedJob(UA_Server *server, UA_Job job, UA_UInt32 IntervalMs, UA_Guid *pJobId)
+//{
+//    if (server->networkLayersSize == 0)
+//    {
+//        // Krücke Job Aufheben
+//        server->repeatedJobs.lh_first = (struct RepeatedJobs *)job.job.methodCall.method;
+//        return UA_STATUSCODE_GOOD;
+//    }
+//    UaServer *pUaServer = (UaServer *)server->networkLayers[0];
+//    return pUaServer->AddRepeatedJob(job, IntervalMs, pJobId);
+//}
+//
+//UA_StatusCode UA_Server_removeRepeatedJob(UA_Server *server, UA_Guid jobGuid) 
+//{
+//    UaServer *pUaServer = (UaServer *)server->networkLayers[0];
+//
+//    pUaServer->RemoveRepeatedJob(jobGuid);
+//    return UA_STATUSCODE_GOOD;
+//}
+//
+//void UA_Server_deleteAllRepeatedJobs(UA_Server *server)
+//{
+//}
 
-    UA_StatusCode UA_Server_addRepeatedJob(UA_Server *server, UA_Job job, UA_UInt32 interval, UA_Guid *jobId)
-    {
-        /* the interval needs to be at least 5ms */
-        if (interval < 5)
-            return UA_STATUSCODE_BADINTERNALERROR;
-        interval *= 10000; // from ms to 100ns resolution
-
-        struct AddRepeatedJob arw;
-        arw.interval = interval;
-        arw.job = job;
-        if (jobId)
-        {
-            if (random_seed == 0)
-                (UA_UInt32)UA_DateTime_now();
-            arw.jobid = UA_Guid_random(&random_seed);
-            *jobId = arw.jobid;
-        }
-        else
-            UA_Guid_init(&arw.jobid);
-        //addRepeatedJob(server, &arw);
-        return UA_STATUSCODE_GOOD;
-    }
-    UA_StatusCode UA_Server_removeRepeatedJob(UA_Server *server, UA_Guid jobId) 
-    {
-        //removeRepeatedJob(server, &jobId);
-        return UA_STATUSCODE_GOOD;
-    }
-
-    void UA_Server_deleteAllRepeatedJobs(UA_Server *server)
-    {
-    }
-}

@@ -4,9 +4,20 @@
 #include "../src/UaNetLayer.h"
 #include "UaClientData.h"
 
+extern BOOL m_UatraceTrace[6];
+void UaLogMsg(UA_LogLevel level, UA_LogCategory category, const char *msg, ...);
 
 #define TRACE_MSG(p)
 #define TRACE_MSGx(p)
+
+class RepeatedJob
+{
+public:
+    UA_Job job;
+    UA_Guid Guid;
+    UA_UInt32 msInterval;
+    UA_UInt32 tStart;
+};
 
 /////////////////////////////////////////////////////////////////////////////
 // Befehlsziel UaServer 
@@ -19,10 +30,19 @@ public:
     UA_Logger *m_pUa_logger;
     UA_UInt32 m_uListenport;
 protected:
-    //SrvSocket m_Sock;
     // Liste mit verbundenen Clients
     UaClientData *m_pCliList;
+    // Timer-verarbeitung 
+    CWnd *m_pTimerWnd;
+    int m_iTimerID;
+    //
     UA_Server *m_pUaServer;
+    //// Repeated jobs
+protected:
+    //CArray<RepeatedJob, RepeatedJob> m_JobList;
+public:
+    //UA_StatusCode AddRepeatedJob(UA_Job job, UA_UInt32 IntervalMs, UA_Guid *pJobId);
+    //UA_StatusCode RemoveRepeatedJob(UA_Guid jobId);
 public:
     UaServer();
     ~UaServer();
@@ -57,15 +77,17 @@ public:
         UaServer *pLayer = (UaServer *)nl;
         pLayer->Deletemembers();
     }
+
     //
     bool bIsOn()
     {
         return m_hSocket != INVALID_SOCKET;
     }
-    bool SrvReStart();
-    bool SrvStart();
+    bool SrvReStart(CWnd *pTimerWnd, int iTimerID);
+    bool SrvStart(CWnd *pTimerWnd, int iTimerID);
     void SrvStop();
     void SrvTimerCheck();
+    void SrvCheckJobs();
     bool NotifyConnect(CAsyncSocket *pCli, const TCHAR *strIP, UINT uPort);
     void NotifyDisconn(UaClientData *pCli);
 protected:

@@ -16,7 +16,6 @@ public:
     UA_UInt32 m_uListenport;
     UA_ConnectionConfig m_UaConf; 
     UA_ByteString m_SenBuf; // message buffer that is reused
-    char m_sUaUrl[250];
 public:
     UaNetLayer();
     UaNetLayer(UA_ConnectionConfig ConConfig, UA_UInt32 uListenPort)

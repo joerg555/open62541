@@ -14,7 +14,7 @@ void UaSocketNetLayer::Init(UA_ConnectionConfig ConConfig, UA_UInt32 uListenPort
     m_ConnectMappings = NULL;
     //handle = this;
     start = Ua_start;
-    getJobs = Ua_getJobs; // ServerNetMfcTCP_getJobs;
+    getJobs = Ua_getJobs;
     stop = Ua_stop;
     deleteMembers = Ua_deleteMembers;
 }
@@ -119,13 +119,9 @@ void UaSocketNetLayer::FreeConnectionCallback(UA_Server *server, void *ptr)
 /* call only from the single networking thread */
 UA_StatusCode UaSocketNetLayer::AddConnection(UA_Int32 newsockfd)
 {
-    UaConnection *c = new UaConnection;
+    UaConnection *c = new UaConnection(newsockfd, this);
     if (!c)
         return UA_STATUSCODE_BADINTERNALERROR;
-    UA_Connection_init(c);
-    c->sockfd = newsockfd;
-    c->handle = this;
-    c->localConf = m_UaConf;
     ConnectionMapping *nm = (ConnectionMapping *)realloc(m_ConnectMappings, sizeof(ConnectionMapping)*(m_ConnectMappingsSize + 1));
     if (!nm) {
         free(c);
@@ -243,10 +239,9 @@ UA_StatusCode UaConnection::Send(UA_ByteString *buf)
             n = ::send(sockfd, (const char*)buf->data, buf->length, 0);
             if (n == SOCKET_ERROR)
             {
-                int err = WSAGetLastError();
-                if (err != WSAEINTR || err != WSAEWOULDBLOCK)
+                int err = SockGetLastError();
+                if (err != SockErrno(EINTR) || err != SockErrno(EWOULDBLOCK))
                 {
-                    close(this);
                     CloseSock();
                     return UA_STATUSCODE_BADCONNECTIONCLOSED;
                 }
@@ -322,8 +317,7 @@ UA_StatusCode UaConnection::GetSendBuffer(UA_Int32 length, UA_ByteString *buf)
 {
     if ((UA_UInt32)length > remoteConf.recvBufferSize)
         return UA_STATUSCODE_BADCOMMUNICATIONERROR;
-    UaNetLayer *layer = (UaNetLayer *)handle;
-    *buf = layer->m_SenBuf;
+    *buf = m_pNetLayer->m_SenBuf;
     return UA_STATUSCODE_GOOD;
 }
 
@@ -353,9 +347,14 @@ void UaConnection::CloseConn()
                          is closed in the main thread */
 }
 
-UaConnection::UaConnection()
+UaConnection::UaConnection(UA_Int32 newsockfd, UaSocketNetLayer *pNetLayer)
 {
-    handle = this;
+    UA_Connection_init(this);
+    m_pNetLayer = pNetLayer;
+    sockfd = newsockfd;
+    handle = NULL;
+    localConf = m_pNetLayer->m_UaConf;
+    // Interface
     getSendBuffer = UaC_getSendBuffer;
     releaseSendBuffer = UaC_releaseSendBuffer;
     send = UaC_send;
@@ -363,3 +362,4 @@ UaConnection::UaConnection()
     releaseRecvBuffer = UaC_releaseRecvBuffer;
     close = UaC_close;
 }
+

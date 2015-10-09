@@ -7,11 +7,13 @@
 #define UaSocketNetLayer__h
 #include "UaNetLayer.h"
 
+class UaSocketNetLayer;
 class UaConnection : public UA_Connection
 {
 public:
-    UaConnection();
+    UaConnection(UA_Int32 newsockfd, UaSocketNetLayer *pNetLayer);
     void CloseSock();
+    void Init(UA_Int32 newsockfd, UA_ConnectionConfig Conf);
     //
     // UA_Connection interface
     //
@@ -24,34 +26,35 @@ public:
     void ConnectionInit();
 
 private:
+    UaSocketNetLayer *m_pNetLayer;
     static UA_StatusCode UaC_getSendBuffer(UA_Connection *connection, UA_Int32 length, UA_ByteString *buf)
     {
-        UaConnection *pConn = (UaConnection *)connection->handle;
+        UaConnection *pConn = (UaConnection *)connection;
         return pConn->GetSendBuffer(length, buf);
     }
     static void UaC_releaseSendBuffer(UA_Connection *connection, UA_ByteString *buf)
     {
-        UaConnection *pConn = (UaConnection *)connection->handle;
+        UaConnection *pConn = (UaConnection *)connection;
         return pConn->ReleaseSendBuffer(buf);
     }
     static UA_StatusCode UaC_send(UA_Connection *connection, UA_ByteString *buf)
     {
-        UaConnection *pConn = (UaConnection *)connection->handle;
+        UaConnection *pConn = (UaConnection *)connection;
         return pConn->Send(buf);
     }
     static UA_StatusCode UaC_recv(UA_Connection *connection, UA_ByteString *response, UA_UInt32 timeout)
     {
-        UaConnection *pConn = (UaConnection *)connection->handle;
+        UaConnection *pConn = (UaConnection *)connection;
         return pConn->Recv(response, timeout);
     }
     static void UaC_releaseRecvBuffer(UA_Connection *connection, UA_ByteString *buf)
     {
-        UaConnection *pConn = (UaConnection *)connection->handle;
+        UaConnection *pConn = (UaConnection *)connection;
         return pConn->ReleaseRecvBuffer(buf);
     }
     static void UaC_close(UA_Connection *connection)
     {
-        UaConnection *pConn = (UaConnection *)connection->handle;
+        UaConnection *pConn = (UaConnection *)connection;
         return pConn->CloseConn();
     }
 };
@@ -76,7 +79,6 @@ public:
     UA_StatusCode AddConnection(UA_Int32 newsockfd);
     static void FreeConnectionCallback(UA_Server *server, void *ptr);
     void Init(UA_ConnectionConfig ConConfig, UA_UInt32 uListenPort);
-
     UA_Int32 GetJobs(UA_Job **jobs, UA_UInt16 timeout);
     UA_StatusCode Start(UA_Logger UaLogger);
     UA_Int32 Stop(UA_Job **jobs);

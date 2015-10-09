@@ -34,18 +34,25 @@
         UA_free(p);                  \
     }
 
+UA_EXPORT const UA_String UA_STRING_NULL = {.length = -1, .data = (UA_Byte*)0 };
+UA_EXPORT const UA_ByteString UA_BYTESTRING_NULL = {.length = -1, .data = (UA_Byte*)0 };
+UA_EXPORT const UA_NodeId UA_NODEID_NULL = {0, UA_NODEIDTYPE_NUMERIC, {0}};
+UA_EXPORT const UA_ExpandedNodeId UA_EXPANDEDNODEID_NULL = {
+    .nodeId = { .namespaceIndex = 0, .identifierType = UA_NODEIDTYPE_NUMERIC, .identifier.numeric = 0 },
+    .namespaceUri = {.length = -1, .data = (UA_Byte*)0}, .serverIndex = 0 };
+
 /***************************/
 /* Random Number Generator */
 /***************************/
 
-static UA_THREAD_LOCAL pcg32_random_t rng = PCG32_INITIALIZER;
+static UA_THREAD_LOCAL pcg32_random_t UA_rng = PCG32_INITIALIZER;
 
 UA_EXPORT void UA_random_seed(UA_UInt64 seed) {
-    pcg32_srandom_r(&rng, seed, UA_DateTime_now());
+    pcg32_srandom_r(&UA_rng, seed, UA_DateTime_now());
 }
 
 UA_EXPORT UA_UInt32 UA_random(void) {
-    return (UA_UInt32)pcg32_random_r(&rng);
+    return (UA_UInt32)pcg32_random_r(&UA_rng);
 }
 
 /*****************/
@@ -255,16 +262,16 @@ UA_Boolean UA_Guid_equal(const UA_Guid *g1, const UA_Guid *g2) {
 
 UA_Guid UA_Guid_random(UA_UInt32 *seed) {
     UA_Guid result;
-    result.data1 = (UA_UInt32)pcg32_random_r(&rng);
-    UA_UInt32 r = (UA_UInt32)pcg32_random_r(&rng);
+    result.data1 = (UA_UInt32)pcg32_random_r(&UA_rng);
+    UA_UInt32 r = (UA_UInt32)pcg32_random_r(&UA_rng);
     result.data2 = (UA_UInt16) r;
     result.data3 = (UA_UInt16) (r >> 16);
-    r = (UA_UInt32)pcg32_random_r(&rng);
+    r = (UA_UInt32)pcg32_random_r(&UA_rng);
     result.data4[0] = (UA_Byte)r;
     result.data4[1] = (UA_Byte)(r >> 4);
     result.data4[2] = (UA_Byte)(r >> 8);
     result.data4[3] = (UA_Byte)(r >> 12);
-    r = (UA_UInt32)pcg32_random_r(&rng);
+    r = (UA_UInt32)pcg32_random_r(&UA_rng);
     result.data4[4] = (UA_Byte)r;
     result.data4[5] = (UA_Byte)(r >> 4);
     result.data4[6] = (UA_Byte)(r >> 8);
@@ -389,62 +396,6 @@ UA_Boolean UA_NodeId_isNull(const UA_NodeId *p) {
         return UA_FALSE;
     }
     return UA_TRUE;
-}
-
-UA_NodeId UA_NodeId_fromInteger(UA_UInt16 nsIndex, UA_Int32 identifier) {
-    return (UA_NodeId) { .namespaceIndex = nsIndex, .identifierType = UA_NODEIDTYPE_NUMERIC,
-                         .identifier.numeric = identifier };
-}
-
-UA_NodeId UA_NodeId_fromCharString(UA_UInt16 nsIndex, char identifier[]) {
-    return (UA_NodeId) { .namespaceIndex = nsIndex, .identifierType = UA_NODEIDTYPE_STRING,
-                         .identifier.string = UA_STRING(identifier) };
-}
-
-UA_NodeId UA_NodeId_fromCharStringCopy(UA_UInt16 nsIndex, char const identifier[]) {
-    return (UA_NodeId) {.namespaceIndex = nsIndex, .identifierType = UA_NODEIDTYPE_STRING,
-                        .identifier.string = UA_STRING_ALLOC(identifier) };
-}
-
-UA_NodeId UA_NodeId_fromString(UA_UInt16 nsIndex, UA_String identifier) {
-    return (UA_NodeId) { .namespaceIndex = nsIndex, .identifierType = UA_NODEIDTYPE_STRING,
-                         .identifier.string = identifier };
-}
-
-UA_NodeId UA_NodeId_fromStringCopy(UA_UInt16 nsIndex, UA_String identifier) {
-    UA_NodeId id;
-    id.namespaceIndex = nsIndex;
-    id.identifierType = UA_NODEIDTYPE_STRING;
-    UA_String_copy(&identifier, &id.identifier.string);
-    return id;
-}
-
-UA_NodeId UA_NodeId_fromGuid(UA_UInt16 nsIndex, UA_Guid identifier) {
-    return (UA_NodeId) { .namespaceIndex = nsIndex, .identifierType = UA_NODEIDTYPE_GUID,
-                         .identifier.guid = identifier };
-}
-
-UA_NodeId UA_NodeId_fromCharByteString(UA_UInt16 nsIndex, char identifier[]) {
-    return (UA_NodeId) { .namespaceIndex = nsIndex, .identifierType = UA_NODEIDTYPE_BYTESTRING,
-                         .identifier.byteString = UA_STRING(identifier) };
-}
-
-UA_NodeId UA_NodeId_fromCharByteStringCopy(UA_UInt16 nsIndex, char const identifier[]) {
-    return (UA_NodeId) { .namespaceIndex = nsIndex, .identifierType = UA_NODEIDTYPE_BYTESTRING,
-                         .identifier.byteString = UA_STRING_ALLOC(identifier) };
-}
-
-UA_NodeId UA_NodeId_fromByteString(UA_UInt16 nsIndex, UA_ByteString identifier) {
-    return (UA_NodeId) { .namespaceIndex = nsIndex, .identifierType = UA_NODEIDTYPE_BYTESTRING,
-                         .identifier.byteString = identifier };
-}
-
-UA_NodeId UA_NodeId_fromByteStringCopy(UA_UInt16 nsIndex, UA_ByteString identifier) {
-    UA_NodeId id;
-    id.namespaceIndex = nsIndex;
-    id.identifierType = UA_NODEIDTYPE_BYTESTRING;
-    UA_ByteString_copy(&identifier, &id.identifier.byteString);
-    return id;
 }
 
 /* ExpandedNodeId */

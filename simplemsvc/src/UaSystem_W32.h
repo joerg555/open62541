@@ -13,3 +13,6 @@
 # define CLOSESOCKET(S) closesocket(S)
 #pragma warning (disable: 4996)
 typedef SOCKET UA_Socket;
+
+#define SockGetLastError() WSAGetLastError()
+#define SockErrno(e)  WSA##e

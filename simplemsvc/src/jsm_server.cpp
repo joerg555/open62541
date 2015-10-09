@@ -19,7 +19,7 @@
 #else
 # include "open62541.h"
 #endif
-//#include "../src/server/ua_server_internal.h"
+#include "../src/server/ua_server_internal.h"
 
 #include <signal.h>
 #include <errno.h> // errno, EINTR
@@ -44,31 +44,31 @@
 #undef UA_LOGLEVEL
 #define UA_LOGLEVEL 4000
 
-// this dose not work in C++ for MSVC
-#undef UA_QUALIFIEDNAME
-#undef UA_LOCALIZEDTEXT
-#undef UA_STRING
-#undef UA_EXPANDEDNODEID_NUMERIC
-
-#define UA_STRING(CHARS)                            {(UA_Int32) strlen(CHARS), (UA_Byte*)CHARS }
-#define UA_QUALIFIEDNAME(NSID, CHARS)               { NSID, {(UA_Int32) strlen(CHARS), (UA_Byte*)CHARS } }
-#define UA_LOCALIZEDTEXT(LOCALE, TEXT)              { UA_STRING(LOCALE), UA_STRING(TEXT) }
-#define UA_EXPANDEDNODEID_NUMERIC(NSID, NUMERICID)  { { NSID,  UA_NODEIDTYPE_NUMERIC, NUMERICID }, { -1, NULL}, 0 }
-
-
-#undef UA_STRING_NULL
-
-const UA_String UA_STRING_NULL =
-{
-    -1, NULL
-};
-
-#undef UA_NODEID_NULL
-
-const UA_NodeId UA_NODEID_NULL =
-{
-    0, UA_NODEIDTYPE_NUMERIC, { 0 }
-};
+//// this dose not work in C++ for MSVC
+//#undef UA_QUALIFIEDNAME
+//#undef UA_LOCALIZEDTEXT
+//#undef UA_STRING
+//#undef UA_EXPANDEDNODEID_NUMERIC
+//
+//#define UA_STRING(CHARS)                            {(UA_Int32) strlen(CHARS), (UA_Byte*)CHARS }
+//#define UA_QUALIFIEDNAME(NSID, CHARS)               { NSID, {(UA_Int32) strlen(CHARS), (UA_Byte*)CHARS } }
+//#define UA_LOCALIZEDTEXT(LOCALE, TEXT)              { UA_STRING(LOCALE), UA_STRING(TEXT) }
+//#define UA_EXPANDEDNODEID_NUMERIC(NSID, NUMERICID)  { { NSID,  UA_NODEIDTYPE_NUMERIC, NUMERICID }, { -1, NULL}, 0 }
+//
+//
+//#undef UA_STRING_NULL
+//
+//const UA_String UA_STRING_NULL =
+//{
+//    -1, NULL
+//};
+//
+//#undef UA_NODEID_NULL
+//
+//const UA_NodeId UA_NODEID_NULL =
+//{
+//    0, UA_NODEIDTYPE_NUMERIC, { 0 }
+//};
 
 //
 // this works only with char [] strings
@@ -243,128 +243,128 @@ int main(int argc, char** argv)
     UA_Server_addNetworkLayer(server, ServerNetworkLayerTCP_new(UA_ConnectionConfig_standard, 16664));
 #endif
 
-    // add node with the datetime data source
-    UA_NodeId nodeId_currentTime;
-    UA_DataSource dateDataSourceDate = { NULL, readTimeData, NULL };
-    UA_Server_addDataSourceVariableNode(server, UA_NODEID_NULL, m_dateName, m_dateNameBrowseName, m_dateNameBrowseName, 0, 0,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
-        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        dateDataSourceDate, &nodeId_currentTime);
-    UA_NodeId myCounterNodeId = UA_NODEID_STRING(0, "the.counter"); /* UA_NODEID_NULL would assign a random free nodeid */
-    UA_DataSource dateDataSourceCounter = { &m_dblCounter, readCounter, writeCounter };
-    UA_Server_addDataSourceVariableNode(server, myCounterNodeId, m_CounterName, m_CounterBrowseName, m_CounterBrowseName, 0, 0,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
-        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        dateDataSourceCounter, NULL);
+    //// add node with the datetime data source
+    //UA_NodeId nodeId_currentTime;
+    //UA_DataSource dateDataSourceDate = { NULL, readTimeData, NULL };
+    //UA_Server_addDataSourceVariableNode(server, UA_NODEID_NULL, m_dateName, m_dateNameBrowseName, m_dateNameBrowseName, 0, 0,
+    //    UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
+    //    UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+    //    dateDataSourceDate, &nodeId_currentTime);
+    //UA_NodeId myCounterNodeId = UA_NODEID_STRING(0, "the.counter"); /* UA_NODEID_NULL would assign a random free nodeid */
+    //UA_DataSource dateDataSourceCounter = { &m_dblCounter, readCounter, writeCounter };
+    //UA_Server_addDataSourceVariableNode(server, myCounterNodeId, m_CounterName, m_CounterBrowseName, m_CounterBrowseName, 0, 0,
+    //    UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
+    //    UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+    //    dateDataSourceCounter, NULL);
 
-    // Get and reattach the datasource
-    UA_DataSource *dataSourceCopy = NULL;
-    UA_Server_getAttribute_DataSource(server, nodeId_currentTime, &dataSourceCopy);
-    if (dataSourceCopy == NULL)
-        UA_LOG_WARNING(m_Ualogger, UA_LOGCATEGORY_USERLAND, "The returned dataSource is invalid");
-    else if (dataSourceCopy->read != dateDataSourceDate.read)
-        UA_LOG_WARNING(m_Ualogger, UA_LOGCATEGORY_USERLAND, "The returned dataSource is not the same as we set?");
-    else
-        UA_Server_setAttribute_DataSource(server, nodeId_currentTime, *dataSourceCopy);
-    free(dataSourceCopy);
+    //// Get and reattach the datasource
+    //UA_DataSource *dataSourceCopy = NULL;
+    //UA_Server_getAttribute_DataSource(server, nodeId_currentTime, &dataSourceCopy);
+    //if (dataSourceCopy == NULL)
+    //    UA_LOG_WARNING(m_Ualogger, UA_LOGCATEGORY_USERLAND, "The returned dataSource is invalid");
+    //else if (dataSourceCopy->read != dateDataSourceDate.read)
+    //    UA_LOG_WARNING(m_Ualogger, UA_LOGCATEGORY_USERLAND, "The returned dataSource is not the same as we set?");
+    //else
+    //    UA_Server_setAttribute_DataSource(server, nodeId_currentTime, *dataSourceCopy);
+    //free(dataSourceCopy);
 
-    // add a static variable node to the adresspace
-    UA_Variant *myIntegerVariant = UA_Variant_new();
-    UA_Int32 myInteger = 42;
-    UA_Variant_setScalarCopy(myIntegerVariant, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
-    const UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, "the answer");
-    const UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, "the.answer");
-    UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-    UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-    UA_Server_addVariableNode(server, myIntegerNodeId, myIntegerName, 
-        UA_LOCALIZEDTEXT("en_US", "the answer"), 
-        UA_LOCALIZEDTEXT("en_US", "the answer"), 
-        0, 0,
-        parentNodeId, parentReferenceNodeId, myIntegerVariant, NULL);
-    /**************/
-    /* Demo Nodes */
-    /**************/
-
-#define DEMOID 50000
-    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, DEMOID), UA_QUALIFIEDNAME(1, "Demo"), UA_LOCALIZEDTEXT("en_US", "Demo"),
-        UA_LOCALIZEDTEXT("en_US", "Demo"), 0, 0, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), NULL);
-
-#define SCALARID 50001
-    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, SCALARID), UA_QUALIFIEDNAME(1, "Scalar"), UA_LOCALIZEDTEXT("en_US", "Demo"),
-        UA_LOCALIZEDTEXT("en_US", "Demo"), 0, 0, UA_NODEID_NUMERIC(1, DEMOID), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), NULL);
-
-#define ARRAYID 50002
-    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, ARRAYID), UA_QUALIFIEDNAME(1, "Array"), UA_LOCALIZEDTEXT("en_US", "Demo"),
-        UA_LOCALIZEDTEXT("en_US", "Demo"), 0, 0, UA_NODEID_NUMERIC(1, DEMOID), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), NULL);
-
-#define MATRIXID 50003
-    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, MATRIXID), UA_QUALIFIEDNAME(1, "Matrix"), UA_LOCALIZEDTEXT("en_US", "Demo"),
-        UA_LOCALIZEDTEXT("en_US", "Demo"), 0, 0, UA_NODEID_NUMERIC(1, DEMOID), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), NULL);
-
-    UA_UInt32 id = 51000; //running id in namespace 0
-    for (UA_UInt32 type = 0; UA_IS_BUILTIN(type); type++) 
-    {
-        if (type == UA_TYPES_VARIANT || type == UA_TYPES_DIAGNOSTICINFO)
-            continue;
-        //add a scalar node for every built-in type
-        void *value = UA_new(&UA_TYPES[type]);
-        UA_Variant *variant = UA_Variant_new();
-        UA_Variant_setScalar(variant, value, &UA_TYPES[type]);
-        char name[15];
-        sprintf(name, "%02d", type);
-        UA_QualifiedName qualifiedName = UA_QUALIFIEDNAME(1, name);
-        UA_Server_addVariableNode(server, 
-            UA_NODEID_NUMERIC(1, ++id), 
-            qualifiedName, 
-            m_EmptyLocal_en_Us,
-            m_EmptyLocal_en_Us, 0, 0,
-            UA_NODEID_NUMERIC(1, SCALARID), 
-            UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), 
-            variant, NULL);
-
-        //add an array node for every built-in type
-        UA_Variant *arrayvar = UA_Variant_new();
-        UA_Variant_setArray(arrayvar, UA_Array_new(&UA_TYPES[type], 10), 10, &UA_TYPES[type]);
-        UA_Server_addVariableNode(server, 
-            UA_NODEID_NUMERIC(1, ++id), 
-            qualifiedName, 
-            m_EmptyLocal_en_Us,
-            m_EmptyLocal_en_Us, 0, 0,
-            UA_NODEID_NUMERIC(1, ARRAYID), 
-            UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), 
-            arrayvar, NULL);
-
-        //add an matrix node for every built-in type
-        arrayvar = UA_Variant_new();
-        void* myMultiArray = UA_Array_new(&UA_TYPES[type], 9);
-        arrayvar->arrayDimensions = (UA_Int32 *)UA_Array_new(&UA_TYPES[UA_TYPES_INT32], 2);
-        arrayvar->arrayDimensions[0] = 3;
-        arrayvar->arrayDimensions[1] = 3;
-        arrayvar->arrayDimensionsSize = 2;
-        arrayvar->arrayLength = 9;
-        arrayvar->data = myMultiArray;
-        arrayvar->type = &UA_TYPES[type];
-        UA_Server_addVariableNode(server, 
-            UA_NODEID_NUMERIC(1, ++id), 
-            qualifiedName, 
-            m_EmptyLocal_en_Us,
-            m_EmptyLocal_en_Us, 0, 0,
-            UA_NODEID_NUMERIC(1, MATRIXID), 
-            UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), 
-            arrayvar, NULL);
-    }
-
-    // Example for iterating over all nodes referenced by "Objects":
-    printf("Nodes connected to 'Objects':\n=============================\n");
-    UA_Server_forEachChildNodeCall(server, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), nodeIter, NULL);
-
-    // Some easy localization
-    UA_LocalizedText objectsName = UA_LOCALIZEDTEXT("de_DE", "Objekte");
-    UA_Server_setAttribute_displayName(server, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), &objectsName);
+//    // add a static variable node to the adresspace
+//    UA_Variant *myIntegerVariant = UA_Variant_new();
+//    UA_Int32 myInteger = 42;
+//    UA_Variant_setScalarCopy(myIntegerVariant, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
+//    const UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, "the answer");
+//    const UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, "the.answer");
+//    UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+//    UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
+//    UA_Server_addVariableNode(server, myIntegerNodeId, myIntegerName, 
+//        UA_LOCALIZEDTEXT("en_US", "the answer"), 
+//        UA_LOCALIZEDTEXT("en_US", "the answer"), 
+//        0, 0,
+//        parentNodeId, parentReferenceNodeId, myIntegerVariant, NULL);
+//    /**************/
+//    /* Demo Nodes */
+//    /**************/
+//
+//#define DEMOID 50000
+//    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, DEMOID), UA_QUALIFIEDNAME(1, "Demo"), UA_LOCALIZEDTEXT("en_US", "Demo"),
+//        UA_LOCALIZEDTEXT("en_US", "Demo"), 0, 0, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+//        UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), NULL);
+//
+//#define SCALARID 50001
+//    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, SCALARID), UA_QUALIFIEDNAME(1, "Scalar"), UA_LOCALIZEDTEXT("en_US", "Demo"),
+//        UA_LOCALIZEDTEXT("en_US", "Demo"), 0, 0, UA_NODEID_NUMERIC(1, DEMOID), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+//        UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), NULL);
+//
+//#define ARRAYID 50002
+//    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, ARRAYID), UA_QUALIFIEDNAME(1, "Array"), UA_LOCALIZEDTEXT("en_US", "Demo"),
+//        UA_LOCALIZEDTEXT("en_US", "Demo"), 0, 0, UA_NODEID_NUMERIC(1, DEMOID), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+//        UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), NULL);
+//
+//#define MATRIXID 50003
+//    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, MATRIXID), UA_QUALIFIEDNAME(1, "Matrix"), UA_LOCALIZEDTEXT("en_US", "Demo"),
+//        UA_LOCALIZEDTEXT("en_US", "Demo"), 0, 0, UA_NODEID_NUMERIC(1, DEMOID), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+//        UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), NULL);
+//
+//    UA_UInt32 id = 51000; //running id in namespace 0
+//    for (UA_UInt32 type = 0; UA_IS_BUILTIN(type); type++) 
+//    {
+//        if (type == UA_TYPES_VARIANT || type == UA_TYPES_DIAGNOSTICINFO)
+//            continue;
+//        //add a scalar node for every built-in type
+//        void *value = UA_new(&UA_TYPES[type]);
+//        UA_Variant *variant = UA_Variant_new();
+//        UA_Variant_setScalar(variant, value, &UA_TYPES[type]);
+//        char name[15];
+//        sprintf(name, "%02d", type);
+//        UA_QualifiedName qualifiedName = UA_QUALIFIEDNAME(1, name);
+//        UA_Server_addVariableNode(server, 
+//            UA_NODEID_NUMERIC(1, ++id), 
+//            qualifiedName, 
+//            m_EmptyLocal_en_Us,
+//            m_EmptyLocal_en_Us, 0, 0,
+//            UA_NODEID_NUMERIC(1, SCALARID), 
+//            UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), 
+//            variant, NULL);
+//
+//        //add an array node for every built-in type
+//        UA_Variant *arrayvar = UA_Variant_new();
+//        UA_Variant_setArray(arrayvar, UA_Array_new(&UA_TYPES[type], 10), 10, &UA_TYPES[type]);
+//        UA_Server_addVariableNode(server, 
+//            UA_NODEID_NUMERIC(1, ++id), 
+//            qualifiedName, 
+//            m_EmptyLocal_en_Us,
+//            m_EmptyLocal_en_Us, 0, 0,
+//            UA_NODEID_NUMERIC(1, ARRAYID), 
+//            UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), 
+//            arrayvar, NULL);
+//
+//        //add an matrix node for every built-in type
+//        arrayvar = UA_Variant_new();
+//        void* myMultiArray = UA_Array_new(&UA_TYPES[type], 9);
+//        arrayvar->arrayDimensions = (UA_Int32 *)UA_Array_new(&UA_TYPES[UA_TYPES_INT32], 2);
+//        arrayvar->arrayDimensions[0] = 3;
+//        arrayvar->arrayDimensions[1] = 3;
+//        arrayvar->arrayDimensionsSize = 2;
+//        arrayvar->arrayLength = 9;
+//        arrayvar->data = myMultiArray;
+//        arrayvar->type = &UA_TYPES[type];
+//        UA_Server_addVariableNode(server, 
+//            UA_NODEID_NUMERIC(1, ++id), 
+//            qualifiedName, 
+//            m_EmptyLocal_en_Us,
+//            m_EmptyLocal_en_Us, 0, 0,
+//            UA_NODEID_NUMERIC(1, MATRIXID), 
+//            UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), 
+//            arrayvar, NULL);
+//    }
+//
+//    // Example for iterating over all nodes referenced by "Objects":
+//    printf("Nodes connected to 'Objects':\n=============================\n");
+//    UA_Server_forEachChildNodeCall(server, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), nodeIter, NULL);
+//
+//    // Some easy localization
+//    UA_LocalizedText objectsName = UA_LOCALIZEDTEXT("de_DE", "Objekte");
+//    UA_Server_setAttribute_displayName(server, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), &objectsName);
 
     //start server
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
@@ -382,6 +382,14 @@ int main(int argc, char** argv)
     }
 
     //ctrl-c received -> clean up
+    // network-layer ist static
+    for (size_t i = 0; i < server->networkLayersSize; i++) 
+    {
+        UA_String_deleteMembers(&server->networkLayers[i]->discoveryUrl);
+        server->networkLayers[i]->deleteMembers(server->networkLayers[i]);
+        //UA_free(server->networkLayers[i]);
+    }
+    server->networkLayersSize = 0;
     UA_Server_delete(server);
     return retval;
 }

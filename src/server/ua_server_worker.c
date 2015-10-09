@@ -39,7 +39,7 @@
  * 
  */
 
-#define MAXTIMEOUT 50000 // max timeout in microsec until the next main loop iteration
+#define MAXTIMEOUT (2000000u) // 50000 // max timeout in microsec until the next main loop iteration
 #define BATCHSIZE 20 // max number of jobs that are dispatched at once to workers
 
 /**
@@ -284,6 +284,7 @@ UA_StatusCode UA_Server_addRepeatedJob(UA_Server *server, UA_Job job, UA_UInt32 
     /* the interval needs to be at least 5ms */
     if(interval < 5)
         return UA_STATUSCODE_BADINTERNALERROR;
+    // jsm: this dose not work if interval is higher than 7 minutes
     interval *= 10000; // from ms to 100ns resolution
 
 #ifdef UA_MULTITHREADING
@@ -323,12 +324,12 @@ UA_StatusCode UA_Server_addRepeatedJob(UA_Server *server, UA_Job job, UA_UInt32 
 }
 
 /* Returns the timeout until the next repeated job in ms */
-static UA_UInt16 processRepeatedJobs(UA_Server *server) {
+/*static*/ UA_UInt32 processRepeatedJobs(UA_Server *server) {
     UA_DateTime current = UA_DateTime_now();
     struct RepeatedJobs *tw = UA_NULL;
 
-    while((tw = LIST_FIRST(&server->repeatedJobs)) != UA_NULL) {
-        if(tw->nextTime > current)
+    while ((tw = LIST_FIRST(&server->repeatedJobs)) != UA_NULL) {
+        if (tw->nextTime > current)
             break;
 
 #ifdef UA_MULTITHREADING
@@ -342,24 +343,28 @@ static UA_UInt16 processRepeatedJobs(UA_Server *server) {
             jobsCopy[i] = tw->jobs[i].job;
         dispatchJobs(server, jobsCopy, tw->jobsSize); // frees the job pointer
 #else
-        for(size_t i=0;i<tw->jobsSize;i++)
+        for (size_t i = 0; i < tw->jobsSize; i++)
             //processJobs may sort the list but dont delete entries
             processJobs(server, &tw->jobs[i].job, 1); // does not free the job ptr
 #endif
         tw->nextTime += tw->interval;
         //start iterating the list from the beginning
         struct RepeatedJobs *prevTw = LIST_FIRST(&server->repeatedJobs); // after which tw do we insert?
-        while(UA_TRUE) {
+        while (UA_TRUE) {
             struct RepeatedJobs *n = LIST_NEXT(prevTw, pointers);
-            if(!n || n->nextTime > tw->nextTime)
+            if (!n || n->nextTime > tw->nextTime)
                 break;
             prevTw = n;
         }
-        if(prevTw != tw) {
+        if (prevTw != tw) {
             LIST_REMOVE(tw, pointers);
             LIST_INSERT_AFTER(prevTw, tw, pointers);
         }
     }
+    return nextRepeatedJob(server, current);
+}
+
+UA_UInt32 nextRepeatedJob(UA_Server *server, UA_DateTime current) {
 
     // check if the next repeated job is sooner than the usual timeout
     // calc in 32 bit must be ok

@@ -423,8 +423,8 @@ static UA_StatusCode EndpointsHandshake(UA_Client *client) {
     for(UA_Int32 i=0; i<response.endpointsSize; ++i){
         UA_EndpointDescription* endpoint = &response.endpoints[i];
         /* look out for an endpoint without security */
-        if(!UA_String_equal(&endpoint->securityPolicyUri,
-                            &UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#None")))
+        UA_String url = UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#None");
+        if(!UA_String_equal(&endpoint->securityPolicyUri, &url))
             continue;
         endpointFound = UA_TRUE;
         /* endpoint with no security found */

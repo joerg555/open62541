@@ -76,6 +76,7 @@
     <ClInclude Include="..\src\ua_util.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\include\ua_config.h.in" />
     <None Include="..\src\server\ua_nodestore_hash.inc" />
     <None Include="..\tools\amalgamate.py" />
     <None Include="..\tools\generate_datatypes.py" />
@@ -125,7 +126,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>

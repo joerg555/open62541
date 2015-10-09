@@ -191,10 +191,11 @@ static void invoke_service(UA_Server *server, UA_SecureChannel *channel, UA_UInt
     UA_deleteMembers(response, responseType);
 }
 
-#define INVOKE_SERVICE(REQUEST, RESPONSETYPE) do {                      \
+#define INVOKE_SERVICE(REQUEST, RESPONSETYPE, UA_LOG) do {                      \
         UA_##REQUEST##Request p;                                        \
         if(UA_##REQUEST##Request_decodeBinary(msg, pos, &p))            \
             return;                                                     \
+        UA_LOG(server->logger, UA_LOGCATEGORY_SERVER, #REQUEST" %d NodeId(ns=%d, i=%d)", iUANs0ID, requestType.namespaceIndex, requestType.identifier.numeric); \
         invoke_service(server, clientChannel, sequenceHeader.requestId, \
                        &p.requestHeader, &UA_TYPES[RESPONSETYPE],       \
                        (void (*)(UA_Server*, UA_Session*, void*,void*))Service_##REQUEST); \
@@ -248,8 +249,11 @@ static void processMSG(UA_Connection *connection, UA_Server *server, const UA_By
         return;
     }
 
-    switch(requestType.identifier.numeric - UA_ENCODINGOFFSET_BINARY) {
+    int iUANs0ID = requestType.identifier.numeric - UA_ENCODINGOFFSET_BINARY;
+
+    switch (iUANs0ID) {
     case UA_NS0ID_GETENDPOINTSREQUEST: {
+        UA_LOG_DEBUG(server->logger, UA_LOGCATEGORY_SERVER, "GETENDPOINTS %d", iUANs0ID);
         UA_GetEndpointsRequest p;
         UA_GetEndpointsResponse r;
         if(UA_GetEndpointsRequest_decodeBinary(msg, pos, &p))
@@ -269,6 +273,7 @@ static void processMSG(UA_Connection *connection, UA_Server *server, const UA_By
         UA_FindServersResponse r;
         if(UA_FindServersRequest_decodeBinary(msg, pos, &p))
             return;
+        UA_LOG_DEBUG(server->logger, UA_LOGCATEGORY_SERVER, "FINDSERVER %d", iUANs0ID);
         UA_FindServersResponse_init(&r);
         init_response_header(&p.requestHeader, &r.responseHeader);
         Service_FindServers(server, &p, &r);
@@ -284,6 +289,7 @@ static void processMSG(UA_Connection *connection, UA_Server *server, const UA_By
         UA_CreateSessionResponse r;
         if(UA_CreateSessionRequest_decodeBinary(msg, pos, &p))
             return;
+        UA_LOG_DEBUG(server->logger, UA_LOGCATEGORY_SERVER, "CREATESESSION %d", iUANs0ID);
         UA_CreateSessionResponse_init(&r);
         init_response_header(&p.requestHeader, &r.responseHeader);
         Service_CreateSession(server, clientChannel, &p, &r);
@@ -297,8 +303,9 @@ static void processMSG(UA_Connection *connection, UA_Server *server, const UA_By
     case UA_NS0ID_ACTIVATESESSIONREQUEST: {
         UA_ActivateSessionRequest  p;
         UA_ActivateSessionResponse r;
-        if(UA_ActivateSessionRequest_decodeBinary(msg, pos, &p))
+        if (UA_ActivateSessionRequest_decodeBinary(msg, pos, &p))
             return;
+        UA_LOG_INFO(server->logger, UA_LOGCATEGORY_SERVER, "ACTIVATESESSION %d", iUANs0ID);
         UA_ActivateSessionResponse_init(&r);
         init_response_header(&p.requestHeader, &r.responseHeader);
         Service_ActivateSession(server, clientChannel, &p, &r);
@@ -310,50 +317,50 @@ static void processMSG(UA_Connection *connection, UA_Server *server, const UA_By
     }
     
     case UA_NS0ID_CLOSESESSIONREQUEST:
-        INVOKE_SERVICE(CloseSession, UA_TYPES_CLOSESESSIONRESPONSE);
+        INVOKE_SERVICE(CloseSession, UA_TYPES_CLOSESESSIONRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_READREQUEST:
-        INVOKE_SERVICE(Read, UA_TYPES_READRESPONSE);
+        INVOKE_SERVICE(Read, UA_TYPES_READRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_WRITEREQUEST:
-        INVOKE_SERVICE(Write, UA_TYPES_WRITERESPONSE);
+        INVOKE_SERVICE(Write, UA_TYPES_WRITERESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_BROWSEREQUEST:
-        INVOKE_SERVICE(Browse, UA_TYPES_BROWSERESPONSE);
+        INVOKE_SERVICE(Browse, UA_TYPES_BROWSERESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_BROWSENEXTREQUEST:
-        INVOKE_SERVICE(BrowseNext, UA_TYPES_BROWSENEXTRESPONSE);
+        INVOKE_SERVICE(BrowseNext, UA_TYPES_BROWSENEXTRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_ADDREFERENCESREQUEST:
-        INVOKE_SERVICE(AddReferences, UA_TYPES_ADDREFERENCESRESPONSE);
+        INVOKE_SERVICE(AddReferences, UA_TYPES_ADDREFERENCESRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_REGISTERNODESREQUEST:
-        INVOKE_SERVICE(RegisterNodes, UA_TYPES_REGISTERNODESRESPONSE);
+        INVOKE_SERVICE(RegisterNodes, UA_TYPES_REGISTERNODESRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_UNREGISTERNODESREQUEST:
-        INVOKE_SERVICE(UnregisterNodes, UA_TYPES_UNREGISTERNODESRESPONSE);
+        INVOKE_SERVICE(UnregisterNodes, UA_TYPES_UNREGISTERNODESRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_TRANSLATEBROWSEPATHSTONODEIDSREQUEST:
-        INVOKE_SERVICE(TranslateBrowsePathsToNodeIds, UA_TYPES_TRANSLATEBROWSEPATHSTONODEIDSRESPONSE);
+        INVOKE_SERVICE(TranslateBrowsePathsToNodeIds, UA_TYPES_TRANSLATEBROWSEPATHSTONODEIDSRESPONSE, UA_LOG_DEBUG);
         break;
 #ifdef ENABLE_SUBSCRIPTIONS    
     case UA_NS0ID_CREATESUBSCRIPTIONREQUEST:
-        INVOKE_SERVICE(CreateSubscription, UA_TYPES_CREATESUBSCRIPTIONRESPONSE);
+        INVOKE_SERVICE(CreateSubscription, UA_TYPES_CREATESUBSCRIPTIONRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_PUBLISHREQUEST:
-        INVOKE_SERVICE(Publish, UA_TYPES_PUBLISHRESPONSE);
+        INVOKE_SERVICE(Publish, UA_TYPES_PUBLISHRESPONSE, UA_LOG_TRACE);
         break;
     case UA_NS0ID_MODIFYSUBSCRIPTIONREQUEST:
-        INVOKE_SERVICE(ModifySubscription, UA_TYPES_MODIFYSUBSCRIPTIONRESPONSE);
+        INVOKE_SERVICE(ModifySubscription, UA_TYPES_MODIFYSUBSCRIPTIONRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_DELETESUBSCRIPTIONSREQUEST:
-        INVOKE_SERVICE(DeleteSubscriptions, UA_TYPES_DELETESUBSCRIPTIONSRESPONSE);
+        INVOKE_SERVICE(DeleteSubscriptions, UA_TYPES_DELETESUBSCRIPTIONSRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_CREATEMONITOREDITEMSREQUEST:
-        INVOKE_SERVICE(CreateMonitoredItems, UA_TYPES_CREATEMONITOREDITEMSRESPONSE);
+        INVOKE_SERVICE(CreateMonitoredItems, UA_TYPES_CREATEMONITOREDITEMSRESPONSE, UA_LOG_DEBUG);
         break;
     case UA_NS0ID_DELETEMONITOREDITEMSREQUEST:
-        INVOKE_SERVICE(DeleteMonitoredItems, UA_TYPES_DELETEMONITOREDITEMSRESPONSE);
+        INVOKE_SERVICE(DeleteMonitoredItems, UA_TYPES_DELETEMONITOREDITEMSRESPONSE, UA_LOG_DEBUG);
         break;
 #endif
 #ifdef ENABLE_METHODCALLS
