@@ -9,12 +9,12 @@
 UA_Subscription *UA_Subscription_new(UA_Int32 subscriptionID) {
     UA_Subscription *new = UA_malloc(sizeof(UA_Subscription));
     if(!new)
-        return UA_NULL;
+        return NULL;
     new->subscriptionID = subscriptionID;
     new->lastPublished  = 0;
     new->sequenceNumber = 1;
     memset(&new->timedUpdateJobGuid, 0, sizeof(UA_Guid));
-    new->timedUpdateJob          = UA_NULL;
+    new->timedUpdateJob          = NULL;
     new->timedUpdateIsRegistered = UA_FALSE;
     LIST_INIT(&new->MonitoredItems);
     LIST_INIT(&new->unpublishedNotifications);
@@ -38,7 +38,7 @@ void UA_Subscription_deleteMembers(UA_Subscription *subscription, UA_Server *ser
     Subscription_deleteUnpublishedNotification(0, true, subscription);
     
     // Unhook/Unregister any timed work assiociated with this subscription
-    if(subscription->timedUpdateJob != UA_NULL){
+    if(subscription->timedUpdateJob != NULL){
         Subscription_unregisterUpdateJob(server, subscription);
         UA_free(subscription->timedUpdateJob);
     }
@@ -63,9 +63,9 @@ void Subscription_generateKeepAlive(UA_Subscription *subscription) {
     UA_unpublishedNotification *msg = UA_malloc(sizeof(UA_unpublishedNotification));
     if(!msg)
         return;
-    msg->notification = UA_NULL;
+    msg->notification = NULL;
     msg->notification = UA_malloc(sizeof(UA_NotificationMessage));
-    msg->notification->notificationData = UA_NULL;
+    msg->notification->notificationData = NULL;
     // KeepAlive uses next message, but does not increment counter
     msg->notification->sequenceNumber = subscription->sequenceNumber + 1;
     msg->notification->publishTime    = UA_DateTime_now();
@@ -155,7 +155,7 @@ void Subscription_updateNotifications(UA_Subscription *subscription) {
             
             changeNotification->monitoredItemsSize  = monItemsChangeT;
             changeNotification->diagnosticInfosSize = 0;
-            changeNotification->diagnosticInfos     = UA_NULL;
+            changeNotification->diagnosticInfos     = NULL;
         
             msg->notification->notificationData[notmsgn].body.length =
                 UA_calcSizeBinary(changeNotification, &UA_TYPES[UA_TYPES_DATACHANGENOTIFICATION]);
@@ -163,8 +163,10 @@ void Subscription_updateNotifications(UA_Subscription *subscription) {
                 UA_calloc(msg->notification->notificationData[notmsgn].body.length, sizeof(UA_Byte));
         
             notificationOffset = 0;
-            UA_encodeBinary(changeNotification, &UA_TYPES[UA_TYPES_DATACHANGENOTIFICATION],
-                            &msg->notification->notificationData[notmsgn].body, &notificationOffset);
+            UA_StatusCode retval = UA_encodeBinary(changeNotification, &UA_TYPES[UA_TYPES_DATACHANGENOTIFICATION],
+                                                   &msg->notification->notificationData[notmsgn].body, &notificationOffset);
+            if(retval != UA_STATUSCODE_GOOD)
+                UA_ByteString_deleteMembers(&msg->notification->notificationData[notmsgn].body);
 	
             // FIXME: Not properly freed!
             for(unsigned int i=0; i<monItemsChangeT; i++) {
@@ -185,7 +187,7 @@ void Subscription_updateNotifications(UA_Subscription *subscription) {
 UA_UInt32 *Subscription_getAvailableSequenceNumbers(UA_Subscription *sub) {
     UA_UInt32 *seqArray = UA_malloc(sizeof(UA_UInt32) * Subscription_queuedNotifications(sub));
     if(!seqArray)
-        return UA_NULL;
+        return NULL;
   
     int i = 0;
     UA_unpublishedNotification *not;
@@ -267,7 +269,7 @@ static void Subscription_timedUpdateNotificationsJob(UA_Server *server, void *da
 
 
 UA_StatusCode Subscription_createdUpdateJob(UA_Server *server, UA_Guid jobId, UA_Subscription *sub) {
-    if(server == UA_NULL || sub == UA_NULL)
+    if(server == NULL || sub == NULL)
         return UA_STATUSCODE_BADSERVERINDEXINVALID;
         
     UA_Job *theWork;
@@ -285,7 +287,7 @@ UA_StatusCode Subscription_createdUpdateJob(UA_Server *server, UA_Guid jobId, UA
 }
 
 UA_StatusCode Subscription_registerUpdateJob(UA_Server *server, UA_Subscription *sub) {
-    if(server == UA_NULL || sub == UA_NULL)
+    if(server == NULL || sub == NULL)
         return UA_STATUSCODE_BADSERVERINDEXINVALID;
     
     if(sub->publishingInterval <= 5 ) 
@@ -300,7 +302,7 @@ UA_StatusCode Subscription_registerUpdateJob(UA_Server *server, UA_Subscription 
 }
 
 UA_StatusCode Subscription_unregisterUpdateJob(UA_Server *server, UA_Subscription *sub) {
-    if(server == UA_NULL || sub == UA_NULL)
+    if(server == NULL || sub == NULL)
         return UA_STATUSCODE_BADSERVERINDEXINVALID;
     UA_Int32 retval = UA_Server_removeRepeatedJob(server, sub->timedUpdateJobGuid);
     sub->timedUpdateIsRegistered = UA_FALSE;
@@ -345,16 +347,11 @@ int MonitoredItem_QueueToDataChangeNotifications(UA_MonitoredItemNotification *d
     // Count instead of relying on the items currentValue
     TAILQ_FOREACH(queueItem, &monitoredItem->queue, listEntry) {
         dst[queueSize].clientHandle = monitoredItem->clientHandle;
+        UA_DataValue_copy(&queueItem->value, &dst[queueSize].value);
+
         dst[queueSize].value.hasServerPicoseconds = UA_FALSE;
         dst[queueSize].value.hasServerTimestamp   = UA_TRUE;
         dst[queueSize].value.serverTimestamp      = UA_DateTime_now();
-        dst[queueSize].value.hasSourcePicoseconds = UA_FALSE;
-        dst[queueSize].value.hasSourceTimestamp   = UA_TRUE;
-        dst[queueSize].value.sourceTimestamp      = UA_DateTime_now();
-        dst[queueSize].value.hasValue             = UA_TRUE;
-        dst[queueSize].value.status = UA_STATUSCODE_GOOD;
-    
-        UA_Variant_copy(&(queueItem->value), &(dst[queueSize].value.value));
     
         // Do not create variants with no type -> will make calcSizeBinary() segfault.
         if(dst[queueSize].value.value.type)
@@ -367,14 +364,14 @@ void MonitoredItem_ClearQueue(UA_MonitoredItem *monitoredItem) {
     MonitoredItem_queuedValue *val, *val_tmp;
     TAILQ_FOREACH_SAFE(val, &monitoredItem->queue, listEntry, val_tmp) {
         TAILQ_REMOVE(&monitoredItem->queue, val, listEntry);
-        UA_Variant_deleteMembers(&val->value);
+        UA_DataValue_deleteMembers(&val->value);
         UA_free(val);
     }
     monitoredItem->queueSize.currentValue = 0;
 }
 
 UA_Boolean MonitoredItem_CopyMonitoredValueToVariant(UA_UInt32 attributeID, const UA_Node *src,
-                                                     UA_Variant *dst) {
+                                                     UA_DataValue *dst) {
     UA_Boolean samplingError = UA_TRUE; 
     UA_DataValue sourceDataValue;
     UA_DataValue_init(&sourceDataValue);
@@ -383,31 +380,31 @@ UA_Boolean MonitoredItem_CopyMonitoredValueToVariant(UA_UInt32 attributeID, cons
     // FIXME: Not all attributeIDs can be monitored yet
     switch(attributeID) {
     case UA_ATTRIBUTEID_NODEID:
-        UA_Variant_setScalarCopy(dst, (const UA_NodeId*)&src->nodeId, &UA_TYPES[UA_TYPES_NODEID]);
+        UA_Variant_setScalarCopy(&dst->value, (const UA_NodeId*)&src->nodeId, &UA_TYPES[UA_TYPES_NODEID]);
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_NODECLASS:
-        UA_Variant_setScalarCopy(dst, (const UA_Int32*)&src->nodeClass, &UA_TYPES[UA_TYPES_INT32]);
+        UA_Variant_setScalarCopy(&dst->value, (const UA_Int32*)&src->nodeClass, &UA_TYPES[UA_TYPES_INT32]);
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_BROWSENAME:
-        UA_Variant_setScalarCopy(dst, (const UA_String*)&src->browseName, &UA_TYPES[UA_TYPES_QUALIFIEDNAME]);
+        UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->browseName, &UA_TYPES[UA_TYPES_QUALIFIEDNAME]);
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_DISPLAYNAME:
-        UA_Variant_setScalarCopy(dst, (const UA_String*)&src->displayName, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]);
+        UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->displayName, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]);
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_DESCRIPTION:
-        UA_Variant_setScalarCopy(dst, (const UA_String*)&src->displayName, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]);
+        UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->displayName, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]);
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_WRITEMASK:
-        UA_Variant_setScalarCopy(dst, (const UA_String*)&src->writeMask, &UA_TYPES[UA_TYPES_UINT32]);
+        UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->writeMask, &UA_TYPES[UA_TYPES_UINT32]);
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_USERWRITEMASK:
-        UA_Variant_setScalarCopy(dst, (const UA_String*)&src->writeMask, &UA_TYPES[UA_TYPES_UINT32]);
+        UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->writeMask, &UA_TYPES[UA_TYPES_UINT32]);
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_ISABSTRACT:
@@ -424,21 +421,21 @@ UA_Boolean MonitoredItem_CopyMonitoredValueToVariant(UA_UInt32 attributeID, cons
         if(src->nodeClass == UA_NODECLASS_VARIABLE) {
             const UA_VariableNode *vsrc = (const UA_VariableNode*)src;
             if(srcAsVariableNode->valueSource == UA_VALUESOURCE_VARIANT) {
-                UA_Variant_copy(&vsrc->value.variant.value, dst);
+                UA_Variant_copy(&vsrc->value.variant.value, &dst->value);
                 //no onRead callback here since triggered by a subscription
                 samplingError = UA_FALSE;
             } else {
                 if(srcAsVariableNode->valueSource != UA_VALUESOURCE_DATASOURCE)
                     break;
                 // todo: handle numeric ranges
-                if(srcAsVariableNode->value.dataSource.read(vsrc->value.dataSource.handle, vsrc->nodeId, UA_TRUE, UA_NULL,
+                if(srcAsVariableNode->value.dataSource.read(vsrc->value.dataSource.handle, vsrc->nodeId, UA_TRUE, NULL,
                                                             &sourceDataValue) != UA_STATUSCODE_GOOD)
                     break;
-                UA_Variant_copy(&sourceDataValue.value, dst);
+                UA_DataValue_copy(&sourceDataValue, dst);
                 if(sourceDataValue.value.data) {
                     UA_deleteMembers(sourceDataValue.value.data, sourceDataValue.value.type);
                     UA_free(sourceDataValue.value.data);
-                    sourceDataValue.value.data = UA_NULL;
+                    sourceDataValue.value.data = NULL;
                 }
                 UA_DataValue_deleteMembers(&sourceDataValue);
                 samplingError = UA_FALSE;
@@ -486,9 +483,9 @@ void MonitoredItem_QueuePushDataValue(UA_Server *server, UA_MonitoredItem *monit
     if(!newvalue)
         return;
 
-    newvalue->listEntry.tqe_next = UA_NULL;
-    newvalue->listEntry.tqe_prev = UA_NULL;
-    UA_Variant_init(&newvalue->value);
+    newvalue->listEntry.tqe_next = NULL;
+    newvalue->listEntry.tqe_prev = NULL;
+    UA_DataValue_init(&newvalue->value);
 
     // Verify that the *Node being monitored is still valid
     // Looking up the in the nodestore is only necessary if we suspect that it is changed during writes
@@ -501,9 +498,10 @@ void MonitoredItem_QueuePushDataValue(UA_Server *server, UA_MonitoredItem *monit
   
     UA_Boolean samplingError = MonitoredItem_CopyMonitoredValueToVariant(monitoredItem->attributeID, target,
                                                                          &newvalue->value);
+
     UA_NodeStore_release(target);
-    if(samplingError != UA_FALSE || !newvalue->value.type) {
-        UA_Variant_deleteMembers(&newvalue->value);
+    if(samplingError != UA_FALSE || !newvalue->value.value.type) {
+        UA_DataValue_deleteMembers(&newvalue->value);
         UA_free(newvalue);
         return;
     }
@@ -521,9 +519,11 @@ void MonitoredItem_QueuePushDataValue(UA_Server *server, UA_MonitoredItem *monit
     }
   
     // encode the data to find if its different to the previous
-    newValueAsByteString.length = UA_calcSizeBinary(&newvalue->value, &UA_TYPES[UA_TYPES_VARIANT]);
+    newValueAsByteString.length = UA_calcSizeBinary(&newvalue->value, &UA_TYPES[UA_TYPES_DATAVALUE]);
     newValueAsByteString.data   = UA_malloc(newValueAsByteString.length);
-    UA_encodeBinary(&newvalue->value, &UA_TYPES[UA_TYPES_VARIANT], &newValueAsByteString, &encodingOffset);
+    UA_StatusCode retval = UA_encodeBinary(&newvalue->value, &UA_TYPES[UA_TYPES_DATAVALUE], &newValueAsByteString, &encodingOffset);
+    if(retval != UA_STATUSCODE_GOOD)
+        UA_ByteString_deleteMembers(&newValueAsByteString);
   
     if(!monitoredItem->lastSampledValue.data) { 
         UA_ByteString_copy(&newValueAsByteString, &monitoredItem->lastSampledValue);
@@ -533,7 +533,7 @@ void MonitoredItem_QueuePushDataValue(UA_Server *server, UA_MonitoredItem *monit
         UA_free(newValueAsByteString.data);
     } else {
         if(UA_String_equal(&newValueAsByteString, &monitoredItem->lastSampledValue) == UA_TRUE) {
-            UA_Variant_deleteMembers(&newvalue->value);
+            UA_DataValue_deleteMembers(&newvalue->value);
             UA_free(newvalue);
             UA_String_deleteMembers(&newValueAsByteString);
             return;

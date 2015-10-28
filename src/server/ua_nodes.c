@@ -11,7 +11,7 @@ static void UA_Node_init(UA_Node *p) {
 	UA_UInt32_init(&p->writeMask);
 	UA_UInt32_init(&p->userWriteMask);
 	p->referencesSize = -1;
-	p->references = UA_NULL;
+	p->references = NULL;
 }
 
 static void UA_Node_deleteMembers(UA_Node *p) {
@@ -40,11 +40,108 @@ static UA_StatusCode UA_Node_copy(const UA_Node *src, UA_Node *dst) {
 	return retval;
 }
 
+void UA_Node_deleteAnyNodeClass(UA_Node *node) {
+    switch(node->nodeClass) {
+    case UA_NODECLASS_OBJECT:
+        UA_ObjectNode_delete((UA_ObjectNode*)node);
+        break;
+    case UA_NODECLASS_VARIABLE:
+        UA_VariableNode_delete((UA_VariableNode*)node);
+        break;
+    case UA_NODECLASS_METHOD:
+        UA_MethodNode_delete((UA_MethodNode*)node);
+        break;
+    case UA_NODECLASS_OBJECTTYPE:
+        UA_ObjectTypeNode_delete((UA_ObjectTypeNode*)node);
+        break;
+    case UA_NODECLASS_VARIABLETYPE:
+        UA_VariableTypeNode_delete((UA_VariableTypeNode*)node);
+        break;
+    case UA_NODECLASS_REFERENCETYPE:
+        UA_ReferenceTypeNode_delete((UA_ReferenceTypeNode*)node);
+        break;
+    case UA_NODECLASS_DATATYPE:
+        UA_DataTypeNode_delete((UA_DataTypeNode*)node);
+        break;
+    case UA_NODECLASS_VIEW:
+        UA_ViewNode_delete((UA_ViewNode*)node);
+        break;
+    default:
+        break;
+    }
+}
+
+typedef UA_Node *(*UA_NewNodeFunction)(void);
+typedef UA_StatusCode (*UA_CopyNodeFunction)(const UA_Node *src, UA_Node *dst);
+typedef void (*UA_DeleteNodeFunction)(UA_Node *p);
+
+UA_Node * UA_Node_copyAnyNodeClass(const UA_Node *node) {
+    UA_NewNodeFunction newNode;
+    UA_CopyNodeFunction copyNode;
+    UA_DeleteNodeFunction deleteNode;
+
+    switch(node->nodeClass) {
+    case UA_NODECLASS_OBJECT:
+        newNode = (UA_NewNodeFunction)UA_ObjectNode_new;
+        copyNode = (UA_CopyNodeFunction)UA_ObjectNode_copy;
+        deleteNode = (UA_DeleteNodeFunction)UA_ObjectNode_delete;
+        break;
+    case UA_NODECLASS_VARIABLE:
+        newNode = (UA_NewNodeFunction)UA_VariableNode_new;
+        copyNode = (UA_CopyNodeFunction)UA_VariableNode_copy;
+        deleteNode = (UA_DeleteNodeFunction)UA_VariableNode_delete;
+        break;
+    case UA_NODECLASS_METHOD:
+        newNode = (UA_NewNodeFunction)UA_MethodNode_new;
+        copyNode = (UA_CopyNodeFunction)UA_MethodNode_copy;
+        deleteNode = (UA_DeleteNodeFunction)UA_MethodNode_delete;
+        break;
+    case UA_NODECLASS_OBJECTTYPE:
+        newNode = (UA_NewNodeFunction)UA_ObjectTypeNode_new;
+        copyNode = (UA_CopyNodeFunction)UA_ObjectTypeNode_copy;
+        deleteNode = (UA_DeleteNodeFunction)UA_ObjectTypeNode_delete;
+        break;
+    case UA_NODECLASS_VARIABLETYPE:
+        newNode = (UA_NewNodeFunction)UA_VariableTypeNode_new;
+        copyNode = (UA_CopyNodeFunction)UA_VariableTypeNode_copy;
+        deleteNode = (UA_DeleteNodeFunction)UA_VariableTypeNode_delete;
+        break;
+    case UA_NODECLASS_REFERENCETYPE:
+        newNode = (UA_NewNodeFunction)UA_ReferenceTypeNode_new;
+        copyNode = (UA_CopyNodeFunction)UA_ReferenceTypeNode_copy;
+        deleteNode = (UA_DeleteNodeFunction)UA_ReferenceTypeNode_delete;
+        break;
+    case UA_NODECLASS_DATATYPE:
+        newNode = (UA_NewNodeFunction)UA_DataTypeNode_new;
+        copyNode = (UA_CopyNodeFunction)UA_DataTypeNode_copy;
+        deleteNode = (UA_DeleteNodeFunction)UA_DataTypeNode_delete;
+        break;
+    case UA_NODECLASS_VIEW:
+        newNode = (UA_NewNodeFunction)UA_ViewNode_new;
+        copyNode = (UA_CopyNodeFunction)UA_ViewNode_copy;
+        deleteNode = (UA_DeleteNodeFunction)UA_ViewNode_delete;
+        break;
+    default:
+        return NULL;
+        break;
+    }
+
+    UA_Node *copy = newNode();
+    if(!copy)
+        return NULL;
+    if(copyNode(node, copy) != UA_STATUSCODE_GOOD) {
+        deleteNode(copy);
+        return NULL;
+    }
+    return copy;
+}
+
 /* UA_ObjectNode */
 void UA_ObjectNode_init(UA_ObjectNode *p) {
 	UA_Node_init((UA_Node*)p);
     p->nodeClass = UA_NODECLASS_OBJECT;
     p->eventNotifier = 0;
+    p->instanceHandle = NULL;
 }
 
 UA_ObjectNode * UA_ObjectNode_new(void) {
@@ -65,6 +162,7 @@ void UA_ObjectNode_delete(UA_ObjectNode *p) {
 
 UA_StatusCode UA_ObjectNode_copy(const UA_ObjectNode *src, UA_ObjectNode *dst) {
     dst->eventNotifier = src->eventNotifier;
+    dst->instanceHandle = src->instanceHandle;
 	return UA_Node_copy((const UA_Node*)src, (UA_Node*)dst);
 }
 
@@ -73,6 +171,8 @@ void UA_ObjectTypeNode_init(UA_ObjectTypeNode *p) {
 	UA_Node_init((UA_Node*)p);
     p->nodeClass = UA_NODECLASS_OBJECTTYPE;
     p->isAbstract = UA_FALSE;
+    p->lifecycleManagement = (UA_ObjectLifecycleManagement)
+        {.constructor = NULL, .destructor = NULL};
 }
 
 UA_ObjectTypeNode * UA_ObjectTypeNode_new(void) {
@@ -93,6 +193,7 @@ void UA_ObjectTypeNode_delete(UA_ObjectTypeNode *p) {
 
 UA_StatusCode UA_ObjectTypeNode_copy(const UA_ObjectTypeNode *src, UA_ObjectTypeNode *dst) {
     dst->isAbstract = src->isAbstract;
+    dst->lifecycleManagement = src->lifecycleManagement;
 	return UA_Node_copy((const UA_Node*)src, (UA_Node*)dst);
 }
 
@@ -102,7 +203,7 @@ void UA_VariableNode_init(UA_VariableNode *p) {
     p->nodeClass = UA_NODECLASS_VARIABLE;
     p->valueSource = UA_VALUESOURCE_VARIANT;
     UA_Variant_init(&p->value.variant.value);
-    p->value.variant.callback = (UA_ValueCallback){UA_NULL,UA_NULL,UA_NULL};
+    p->value.variant.callback = (UA_ValueCallback){NULL,NULL,NULL};
     p->valueRank = -2; // scalar or array of any dimension
     p->accessLevel = 0;
     p->userAccessLevel = 0;
@@ -133,10 +234,10 @@ UA_StatusCode UA_VariableNode_copy(const UA_VariableNode *src, UA_VariableNode *
 	UA_StatusCode retval = UA_Node_copy((const UA_Node*)src, (UA_Node*)dst);
     dst->valueRank = src->valueRank;
     dst->valueSource = src->valueSource;
-    if(src->valueSource == UA_VALUESOURCE_VARIANT){
+    if(src->valueSource == UA_VALUESOURCE_VARIANT) {
         retval = UA_Variant_copy(&src->value.variant.value, &dst->value.variant.value);
         dst->value.variant.callback = src->value.variant.callback;
-    }else
+    } else
         dst->value.dataSource = src->value.dataSource;
     if(retval) {
         UA_VariableNode_deleteMembers(dst);
@@ -155,7 +256,7 @@ void UA_VariableTypeNode_init(UA_VariableTypeNode *p) {
     p->nodeClass = UA_NODECLASS_VARIABLETYPE;
     p->valueSource = UA_VALUESOURCE_VARIANT;
     UA_Variant_init(&p->value.variant.value);
-    p->value.variant.callback = (UA_ValueCallback){UA_NULL, UA_NULL, UA_NULL};
+    p->value.variant.callback = (UA_ValueCallback){NULL, NULL, NULL};
     p->valueRank = -2; // scalar or array of any dimension
     p->isAbstract = UA_FALSE;
 }
@@ -243,8 +344,8 @@ void UA_MethodNode_init(UA_MethodNode *p) {
     p->executable = UA_FALSE;
     p->userExecutable = UA_FALSE;
 #ifdef ENABLE_METHODCALLS
-    p->methodHandle        = UA_NULL;
-    p->attachedMethod      = UA_NULL;
+    p->methodHandle        = NULL;
+    p->attachedMethod      = NULL;
 #endif
 }
 
@@ -257,7 +358,7 @@ UA_MethodNode * UA_MethodNode_new(void) {
 
 void UA_MethodNode_deleteMembers(UA_MethodNode *p) {
 #ifdef ENABLE_METHODCALLS
-    p->attachedMethod = UA_NULL;
+    p->attachedMethod = NULL;
 #endif
     UA_Node_deleteMembers((UA_Node*)p);
 }
@@ -265,8 +366,8 @@ void UA_MethodNode_deleteMembers(UA_MethodNode *p) {
 void UA_MethodNode_delete(UA_MethodNode *p) {
     UA_MethodNode_deleteMembers(p);
 #ifdef ENABLE_METHODCALLS
-    p->methodHandle   = UA_NULL;
-    p->attachedMethod = UA_NULL;
+    p->methodHandle   = NULL;
+    p->attachedMethod = NULL;
 #endif
     UA_free(p);
 }

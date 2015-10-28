@@ -27,7 +27,7 @@ public:
 
 private:
     UaSocketNetLayer *m_pNetLayer;
-    static UA_StatusCode UaC_getSendBuffer(UA_Connection *connection, UA_Int32 length, UA_ByteString *buf)
+    static UA_StatusCode UaC_getSendBuffer(UA_Connection *connection, size_t length, UA_ByteString *buf)
     {
         UaConnection *pConn = (UaConnection *)connection;
         return pConn->GetSendBuffer(length, buf);

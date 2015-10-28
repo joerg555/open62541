@@ -5,8 +5,9 @@
 #include "ua_nodestore.h"
 #include "ua_nodes.h"
 
-static const UA_VariableNode *getArgumentsVariableNode(UA_Server *server, const UA_MethodNode *ofMethod,
-                                                       UA_String withBrowseName) {
+static const UA_VariableNode
+*getArgumentsVariableNode(UA_Server *server, const UA_MethodNode *ofMethod,
+                          UA_String withBrowseName) {
     const UA_Node *refTarget;
     UA_NodeId hasProperty = UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY);
     
@@ -24,10 +25,11 @@ static const UA_VariableNode *getArgumentsVariableNode(UA_Server *server, const 
             UA_NodeStore_release(refTarget);
         }
     }
-    return UA_NULL;
+    return NULL;
 }
 
-static UA_StatusCode statisfySignature(UA_Variant *var, UA_Argument arg) {
+static UA_StatusCode
+statisfySignature(UA_Variant *var, UA_Argument arg) {
     if(!UA_NodeId_equal(&var->type->typeId, &arg.dataType) )
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     
@@ -72,13 +74,16 @@ static UA_StatusCode statisfySignature(UA_Variant *var, UA_Argument arg) {
     return UA_STATUSCODE_GOOD;
 }
 
-static UA_StatusCode argConformsToDefinition(UA_CallMethodRequest *rs, const UA_VariableNode *argDefinition) {
+static UA_StatusCode
+argConformsToDefinition(UA_CallMethodRequest *rs, const UA_VariableNode *argDefinition) {
     if(argDefinition->value.variant.value.type != &UA_TYPES[UA_TYPES_ARGUMENT] &&
         argDefinition->value.variant.value.type != &UA_TYPES[UA_TYPES_EXTENSIONOBJECT])
         return UA_STATUSCODE_BADINTERNALERROR;
-    if(rs->inputArgumentsSize < argDefinition->value.variant.value.arrayLength)
+    if(rs->inputArgumentsSize < argDefinition->value.variant.value.arrayLength &&
+       argDefinition->value.variant.value.arrayLength > 0)
         return UA_STATUSCODE_BADARGUMENTSMISSING;
-    if(rs->inputArgumentsSize > argDefinition->value.variant.value.arrayLength)
+    if(rs->inputArgumentsSize > 0 &&
+       rs->inputArgumentsSize > argDefinition->value.variant.value.arrayLength)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     
     const UA_ExtensionObject *thisArgDefExtObj;
@@ -96,7 +101,7 @@ static UA_StatusCode argConformsToDefinition(UA_CallMethodRequest *rs, const UA_
             if(!UA_NodeId_equal(&ArgumentNodeId, &thisArgDefExtObj->typeId))
                 return UA_STATUSCODE_BADINTERNALERROR;
                 
-            UA_decodeBinary(&thisArgDefExtObj->body, &decodingOffset, &arg, &UA_TYPES[UA_TYPES_ARGUMENT]);
+            retval |= UA_decodeBinary(&thisArgDefExtObj->body, &decodingOffset, &arg, &UA_TYPES[UA_TYPES_ARGUMENT]);
         } else if(argDefinition->value.variant.value.type == &UA_TYPES[UA_TYPES_ARGUMENT])
             arg = ((UA_Argument *) argDefinition->value.variant.value.data)[i];
         retval |= statisfySignature(var, arg);
@@ -104,17 +109,16 @@ static UA_StatusCode argConformsToDefinition(UA_CallMethodRequest *rs, const UA_
     return retval;
 }
 
-static void callMethod(UA_Server *server, UA_Session *session, UA_CallMethodRequest *request,
-                       UA_CallMethodResult *result) {
-    const UA_MethodNode *methodCalled = (const UA_MethodNode*) UA_NodeStore_get(server->nodestore,
-                                                                                &request->methodId);
+static void
+callMethod(UA_Server *server, UA_Session *session, UA_CallMethodRequest *request,
+           UA_CallMethodResult *result) {
+    const UA_MethodNode *methodCalled = (const UA_MethodNode*)UA_NodeStore_get(server->nodestore, &request->methodId);
     if(!methodCalled) {
         result->statusCode = UA_STATUSCODE_BADMETHODINVALID;
         return;
     }
     
-    const UA_ObjectNode *withObject = (const UA_ObjectNode *) UA_NodeStore_get(server->nodestore,
-                                                                               &request->objectId);
+    const UA_ObjectNode *withObject = (const UA_ObjectNode*)UA_NodeStore_get(server->nodestore, &request->objectId);
     if(!withObject) {
         result->statusCode = UA_STATUSCODE_BADNODEIDINVALID;
         goto releaseMethodReturn;
@@ -203,7 +207,8 @@ void Service_Call(UA_Server *server, UA_Session *session, const UA_CallRequest *
         return;
     }
 
-    response->results = UA_Array_new(&UA_TYPES[UA_TYPES_CALLMETHODRESULT], request->methodsToCallSize);
+    response->results = UA_Array_new(&UA_TYPES[UA_TYPES_CALLMETHODRESULT],
+                                     request->methodsToCallSize);
     if(!response->results) {
         response->responseHeader.serviceResult = UA_STATUSCODE_BADOUTOFMEMORY;
         return;

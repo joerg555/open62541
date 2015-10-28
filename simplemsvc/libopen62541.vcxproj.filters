@@ -47,9 +47,6 @@
     <ClCompile Include="..\src\server\ua_server.c">
       <Filter>src\server</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\server\ua_server_addressspace.c">
-      <Filter>src\server</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\server\ua_server_binary.c">
       <Filter>src\server</Filter>
     </ClCompile>
@@ -115,6 +112,12 @@
     </ClCompile>
     <ClCompile Include="..\deps\pcg_basic.c">
       <Filter>deps</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\client\ua_client_highlevel.c">
+      <Filter>src\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\client\ua_client_highlevel_subscriptions.c">
+      <Filter>src\client</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

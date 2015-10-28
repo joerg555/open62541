@@ -108,7 +108,7 @@ static void dispatchJobs(UA_Server *server, UA_Job *jobs, size_t jobsSize) {
         struct DispatchJobsList *wln = UA_malloc(sizeof(struct DispatchJobsList));
         if(startIndex > 0) {
             wln->jobs = UA_malloc(size * sizeof(UA_Job));
-            UA_memcpy(wln->jobs, &jobs[startIndex], size * sizeof(UA_Job));
+            memcpy(wln->jobs, &jobs[startIndex], size * sizeof(UA_Job));
             wln->jobsSize = size;
         } else {
             /* forward the original array */
@@ -176,7 +176,7 @@ static void * workerLoop(struct workerStartData *startInfo) {
    	rcu_unregister_thread();
 
     /* we need to return _something_ for pthreads */
-    return UA_NULL;
+    return NULL;
 }
 
 static void emptyDispatchQueue(UA_Server *server) {
@@ -221,9 +221,10 @@ struct AddRepeatedJob {
 
 /* internal. call only from the main loop. */
 static UA_StatusCode addRepeatedJob(UA_Server *server, struct AddRepeatedJob * UA_RESTRICT arw) {
-    struct RepeatedJobs *matchingTw = UA_NULL; // add the item here
-    struct RepeatedJobs *lastTw = UA_NULL; // if there is no repeated job, add a new one this entry
+    struct RepeatedJobs *matchingTw = NULL; // add the item here
+    struct RepeatedJobs *lastTw = NULL; // if there is no repeated job, add a new one this entry
     struct RepeatedJobs *tempTw;
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
 
     /* search for matching entry */
     UA_DateTime firstTime = UA_DateTime_now() + arw->interval;
@@ -244,25 +245,17 @@ static UA_StatusCode addRepeatedJob(UA_Server *server, struct AddRepeatedJob * U
         matchingTw = UA_realloc(matchingTw, sizeof(struct RepeatedJobs) +
                                 (sizeof(struct IdentifiedJob) * (matchingTw->jobsSize + 1)));
         if(!matchingTw) {
-#ifdef UA_MULTITHREADING
-            UA_free(arw);
-#endif
-            return UA_STATUSCODE_BADOUTOFMEMORY;
+            retval = UA_STATUSCODE_BADOUTOFMEMORY;
+            goto cleanup;
         }
-
-        /* point the realloced struct */
-        if(matchingTw->pointers.le_next)
-            matchingTw->pointers.le_next->pointers.le_prev = &matchingTw->pointers.le_next;
-        if(matchingTw->pointers.le_prev)
-            *matchingTw->pointers.le_prev = matchingTw;
+        /* link the reallocated tw into the list */
+        LIST_REPLACE(matchingTw, matchingTw, pointers);
     } else {
         /* create a new entry */
         matchingTw = UA_malloc(sizeof(struct RepeatedJobs) + sizeof(struct IdentifiedJob));
         if(!matchingTw) {
-#ifdef UA_MULTITHREADING
-            UA_free(arw);
-#endif
-            return UA_STATUSCODE_BADOUTOFMEMORY;
+            retval = UA_STATUSCODE_BADOUTOFMEMORY;
+            goto cleanup;
         }
         matchingTw->jobsSize = 0;
         matchingTw->nextTime = firstTime;
@@ -274,10 +267,12 @@ static UA_StatusCode addRepeatedJob(UA_Server *server, struct AddRepeatedJob * U
     }
     matchingTw->jobs[matchingTw->jobsSize] = arw->job;
     matchingTw->jobsSize++;
+
+ cleanup:
 #ifdef UA_MULTITHREADING
     UA_free(arw);
 #endif
-    return UA_STATUSCODE_GOOD;
+    return retval;
 }
 
 UA_StatusCode UA_Server_addRepeatedJob(UA_Server *server, UA_Job job, UA_UInt32 interval, UA_Guid *jobId) {
@@ -326,10 +321,10 @@ UA_StatusCode UA_Server_addRepeatedJob(UA_Server *server, UA_Job job, UA_UInt32 
 /* Returns the timeout until the next repeated job in ms */
 /*static*/ UA_UInt32 processRepeatedJobs(UA_Server *server) {
     UA_DateTime current = UA_DateTime_now();
-    struct RepeatedJobs *tw = UA_NULL;
+    struct RepeatedJobs *tw = NULL;
 
-    while ((tw = LIST_FIRST(&server->repeatedJobs)) != UA_NULL) {
-        if (tw->nextTime > current)
+    while((tw = LIST_FIRST(&server->repeatedJobs)) != NULL) {
+        if(tw->nextTime > current)
             break;
 
 #ifdef UA_MULTITHREADING
@@ -421,8 +416,8 @@ UA_StatusCode UA_Server_removeRepeatedJob(UA_Server *server, UA_Guid jobId) {
 }
 
 void UA_Server_deleteAllRepeatedJobs(UA_Server *server) {
-    struct RepeatedJobs *current;
-    while((current = LIST_FIRST(&server->repeatedJobs))) {
+    struct RepeatedJobs *current, *temp;
+    LIST_FOREACH_SAFE(current, &server->repeatedJobs, pointers, temp) {
         LIST_REMOVE(current, pointers);
         UA_free(current);
     }
@@ -438,7 +433,7 @@ void UA_Server_deleteAllRepeatedJobs(UA_Server *server) {
 
 struct DelayedJobs {
     struct DelayedJobs *next;
-    UA_UInt32 *workerCounters; // initially UA_NULL until the counter are set
+    UA_UInt32 *workerCounters; // initially NULL until the counter are set
     UA_UInt32 jobsCount; // the size of the array is DELAYEDJOBSSIZE, the count may be less
     UA_Job jobs[DELAYEDJOBSSIZE]; // when it runs full, a new delayedJobs entry is created
 };
@@ -464,7 +459,7 @@ static void addDelayedJob(UA_Server *server, UA_Job *job) {
             return;
         }
         dj->jobsCount = 0;
-        dj->workerCounters = UA_NULL;
+        dj->workerCounters = NULL;
         dj->next = server->delayedJobs;
         server->delayedJobs = dj;
 
@@ -527,7 +522,7 @@ static void dispatchDelayedJobs(UA_Server *server, void *data /* not used, but n
     /* process and free all delayed jobs from here on */
     while(dw) {
         processJobs(server, dw->jobs, dw->jobsCount);
-        struct DelayedJobs *next = uatomic_xchg(&beforedw->next, UA_NULL);
+        struct DelayedJobs *next = uatomic_xchg(&beforedw->next, NULL);
         UA_free(dw);
         UA_free(dw->workerCounters);
         dw = next;
@@ -571,13 +566,13 @@ UA_StatusCode result = UA_STATUSCODE_GOOD;
         struct workerStartData *startData = UA_malloc(sizeof(struct workerStartData));
         startData->server = server;
         startData->workerCounter = &server->workerCounters[i];
-        pthread_create(&server->thr[i], UA_NULL, (void* (*)(void*))workerLoop, startData);
+        pthread_create(&server->thr[i], NULL, (void* (*)(void*))workerLoop, startData);
     }
 
     /* try to execute the delayed callbacks every 10 sec */
     UA_Job processDelayed = {.type = UA_JOBTYPE_METHODCALL,
-                             .job.methodCall = {.method = dispatchDelayedJobs, .data = UA_NULL} };
-    UA_Server_addRepeatedJob(server, processDelayed, 10000, UA_NULL);
+                             .job.methodCall = {.method = dispatchDelayedJobs, .data = NULL} };
+    UA_Server_addRepeatedJob(server, processDelayed, 10000, NULL);
 #endif
 
     /* Start the networklayers */
@@ -633,10 +628,16 @@ UA_StatusCode UA_Server_run_mainloop(UA_Server *server, UA_Boolean *running) {
 }
 
 UA_StatusCode UA_Server_run_shutdown(UA_Server *server, UA_UInt16 nThreads){
+    UA_Job *stopJobs;
+    for(size_t i = 0; i < server->networkLayersSize; i++) {
+        size_t stopJobsSize = server->networkLayers[i]->stop(server->networkLayers[i], &stopJobs);
+        processJobs(server, stopJobs, stopJobsSize);
+        UA_free(stopJobs);
+    }
 #ifdef UA_MULTITHREADING
     /* Wait for all worker threads to finish */
     for(UA_UInt32 i=0;i<nThreads;i++) {
-        pthread_join(server->thr[i], UA_NULL);
+        pthread_join(server->thr[i], NULL);
         UA_free(server->workerCounters[i]);
     }
     UA_free(server->workerCounters);

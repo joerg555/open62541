@@ -12,7 +12,7 @@ START_TEST(newAndEmptyObjectShallBeDeleted) {
 	// given
 	void *obj = UA_new(&UA_TYPES[_i]);
 	// then
-	ck_assert_ptr_ne(obj, UA_NULL);
+	ck_assert_ptr_ne(obj, NULL);
     // finally
 	UA_delete(obj, &UA_TYPES[_i]);
 }
@@ -99,7 +99,8 @@ START_TEST(decodeShallFailWithTruncatedBufferButSurvive) {
 	pos = 0;
 	msg1.length = pos / 2;
 	//fprintf(stderr,"testing %s with half buffer\n",UA_TYPES[_i].name);
-	UA_decodeBinary(&msg1, &pos, obj2, &UA_TYPES[_i]);
+	retval = UA_decodeBinary(&msg1, &pos, obj2, &UA_TYPES[_i]);
+	ck_assert_int_ne(retval, UA_STATUSCODE_GOOD);
 	//then
 	// finally
 	//fprintf(stderr,"delete %s with half buffer\n",UA_TYPES[_i].name);
@@ -112,7 +113,7 @@ END_TEST
 
 START_TEST(decodeScalarBasicTypeFromRandomBufferShallSucceed) {
 	// given
-	void *obj1 = UA_NULL;
+	void *obj1 = NULL;
 	UA_ByteString msg1;
 	UA_Int32 retval = UA_STATUSCODE_GOOD;
 	UA_Int32 buflen = 256;

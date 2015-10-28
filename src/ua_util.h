@@ -3,50 +3,23 @@
 
 #include "ua_config.h"
 
+/* Subtract from nodeids to get from the encoding to the content */
+#define UA_ENCODINGOFFSET_XML 1
+#define UA_ENCODINGOFFSET_BINARY 2
+
+#include <assert.h> // assert
+#define UA_assert(ignore) assert(ignore)
+
 /*********************/
 /* Memory Management */
 /*********************/
 
+/* Replace the macros with functions for custom allocators if necessary */
 #include <stdlib.h> // malloc, free
-#include <string.h> // memcpy
-#include <assert.h> // assert
-
 #ifdef _WIN32
 # include <malloc.h>
 #endif
 
-/* Visual Studio needs __restrict */
-#ifdef _MSC_VER
-# define UA_RESTRICT __restrict
-#else
-# define UA_RESTRICT restrict
-#endif
-
-/* Visual Studio does not know fnct/unistd file access results */
-#ifdef _MSC_VER
-    #ifndef R_OK
-        #define R_OK    4               /* Test for read permission.  */
-    #endif
-    #ifndef R_OK
-        #define W_OK    2               /* Test for write permission.  */
-    #endif
-    #ifndef X_OK
-        #define X_OK    1               /* Test for execute permission.  */
-    #endif
-    #ifndef F_OK
-        #define F_OK    0               /* Test for existence.  */
-    #endif
-#endif
-
-#define UA_NULL ((void *)0)
-
-// subtract from nodeids to get from the encoding to the content
-#define UA_ENCODINGOFFSET_XML 1
-#define UA_ENCODINGOFFSET_BINARY 2
-
-#define UA_assert(ignore) assert(ignore)
-
-/* Replace the macros with functions for custom allocators if necessary */
 #ifndef UA_free
 # define UA_free(ptr) free(ptr)
 #endif
@@ -59,9 +32,6 @@
 #ifndef UA_realloc
 # define UA_realloc(ptr, size) realloc(ptr, size)
 #endif
-
-#define UA_memcpy(dst, src, size) memcpy(dst, src, size)
-#define UA_memset(ptr, value, size) memset(ptr, value, size)
 
 #ifndef NO_ALLOCA
 # ifdef __GNUC__
@@ -94,10 +64,7 @@
 /* System Libraries */
 /********************/
 
-#include <stdarg.h> // va_start, va_end
 #include <time.h>
-#include <stdio.h> // printf
-
 #ifdef _WIN32
 # include <winsock2.h> //needed for amalgation
 # include <windows.h>

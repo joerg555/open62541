@@ -13,7 +13,7 @@
 #endif
 
 int main(void) {
-    UA_Client *client = UA_Client_new(UA_ClientConfig_standard, Logger_Stdout_new());
+    UA_Client *client = UA_Client_new(UA_ClientConfig_standard, Logger_Stdout);
     UA_StatusCode retval = UA_Client_connect(client, ClientNetworkLayerTCP_connect, "opc.tcp://localhost:16664");
     if(retval != UA_STATUSCODE_GOOD) {
         UA_Client_delete(client);
@@ -31,7 +31,7 @@ int main(void) {
     rReq.nodesToRead[0].nodeId = UA_NODEID_NUMERIC(0, 2258);
     rReq.nodesToRead[0].attributeId = UA_ATTRIBUTEID_VALUE;
 
-    UA_ReadResponse rResp = UA_Client_read(client, &rReq);
+    UA_ReadResponse rResp = UA_Client_Service_read(client, rReq);
     if(rResp.responseHeader.serviceResult == UA_STATUSCODE_GOOD &&
             rResp.resultsSize > 0 && rResp.results[0].hasValue &&
             UA_Variant_isScalar(&rResp.results[0].value) &&

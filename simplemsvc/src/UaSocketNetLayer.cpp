@@ -40,13 +40,13 @@ UA_StatusCode UaSocketNetLayer::Start(UA_Logger UaLogger)
     UaNetLayer::Start(UaLogger);
 #ifdef _WIN32
     if ((serversockfd = socket(PF_INET, SOCK_STREAM, 0)) == (UA_Int32)INVALID_SOCKET) {
-        UA_LOG_WARNING((m_Ua_logger), UA_LOGCATEGORY_COMMUNICATION, "Error opening socket, code: %d",
+        UA_LOG_WARNING((m_Ua_logger), UA_LOGCATEGORY_NETWORK, "Error opening socket, code: %d",
             WSAGetLastError());
         return UA_STATUSCODE_BADINTERNALERROR;
     }
 #else
     if ((serversockfd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-        UA_LOG_WARNING((*logger), UA_LOGCATEGORY_COMMUNICATION, "Error opening socket");
+        UA_LOG_WARNING((*logger), UA_LOGCATEGORY_NETWORK, "Error opening socket");
         return UA_STATUSCODE_BADINTERNALERROR;
     }
 #endif
@@ -58,19 +58,19 @@ UA_StatusCode UaSocketNetLayer::Start(UA_Logger UaLogger)
     if (setsockopt(serversockfd, SOL_SOCKET,
         SO_REUSEADDR, (const char *)&optval,
         sizeof(optval)) == -1) {
-        UA_LOG_WARNING((m_Ua_logger), UA_LOGCATEGORY_COMMUNICATION, "Error during setting of socket options");
+        UA_LOG_WARNING((m_Ua_logger), UA_LOGCATEGORY_NETWORK, "Error during setting of socket options");
         CLOSESOCKET(serversockfd);
         return UA_STATUSCODE_BADINTERNALERROR;
     }
     if (bind(serversockfd, (const struct sockaddr *)&serv_addr,
         sizeof(serv_addr)) < 0) {
-        UA_LOG_WARNING((m_Ua_logger), UA_LOGCATEGORY_COMMUNICATION, "Error during socket binding");
+        UA_LOG_WARNING((m_Ua_logger), UA_LOGCATEGORY_NETWORK, "Error during socket binding");
         CLOSESOCKET(serversockfd);
         return UA_STATUSCODE_BADINTERNALERROR;
     }
     socket_set_nonblocking(serversockfd);
     listen(serversockfd, MAXBACKLOG);
-    UA_LOG_INFO((m_Ua_logger), UA_LOGCATEGORY_COMMUNICATION, "Listening on %.*s",
+    UA_LOG_INFO((m_Ua_logger), UA_LOGCATEGORY_NETWORK, "Listening on %.*s",
         discoveryUrl.length, discoveryUrl.data);
     return UA_STATUSCODE_GOOD;
 }

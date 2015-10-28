@@ -78,7 +78,16 @@ void UaNetLayer::Init(UA_ConnectionConfig ConConfig, UA_UInt32 uListenPort)
     hostname[0] = '\0';     // if gethostname() returns error
     gethostname(hostname, sizeof(hostname));
     // mit malloc damit free mögöich
-    UA_String_copyprintf("opc.tcp://%s:%d", &discoveryUrl, hostname, m_uListenport);
+    char sUrl[256];
+    UA_String str;
+#ifndef _MSC_VER
+    str.length = snprintf(sUrl, 255, "opc.tcp://%s:%d", hostname, uListenPort);
+#else
+    str.length = _snprintf_s(sUrl, 255, _TRUNCATE, "opc.tcp://%s:%d", hostname, uListenPort);
+#endif
+    str.data = (UA_Byte*)sUrl;
+    UA_String_copy(&str, &discoveryUrl);
+    //UA_String_copyprintf("opc.tcp://%s:%d", &discoveryUrl, hostname, m_uListenport);
     // 2 static Buffers for sen and receive
     m_SenBuf.length = m_UaConf.maxMessageSize;
     m_SenBuf.data = (UA_Byte *)malloc(m_SenBuf.length);

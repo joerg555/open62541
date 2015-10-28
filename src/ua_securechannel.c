@@ -13,7 +13,7 @@ void UA_SecureChannel_init(UA_SecureChannel *channel) {
     UA_ByteString_init(&channel->clientNonce);
     UA_ByteString_init(&channel->serverNonce);
     channel->sequenceNumber = 0;
-    channel->connection = UA_NULL;
+    channel->connection = NULL;
     LIST_INIT(&channel->sessions);
 }
 
@@ -31,9 +31,12 @@ void UA_SecureChannel_deleteMembersCleanup(UA_SecureChannel *channel) {
             c->close(c);
     }
     /* just remove the pointers and free the linked list (not the sessions) */
-    struct SessionEntry *se;
-    while((se = LIST_FIRST(&channel->sessions))) {
-        UA_SecureChannel_detachSession(channel, se->session); /* the se is deleted inside */
+    struct SessionEntry *se, *temp;
+    LIST_FOREACH_SAFE(se, &channel->sessions, pointers, temp) {
+        if(se->session)
+            se->session->channel = NULL;
+        LIST_REMOVE(se, pointers);
+        UA_free(se);
     }
 }
 
@@ -52,12 +55,12 @@ void UA_SecureChannel_attachSession(UA_SecureChannel *channel, UA_Session *sessi
         return;
     se->session = session;
 #ifdef UA_MULTITHREADING
-    if(uatomic_cmpxchg(&session->channel, UA_NULL, channel) != UA_NULL) {
+    if(uatomic_cmpxchg(&session->channel, NULL, channel) != NULL) {
         UA_free(se);
         return;
     }
 #else
-    if(session->channel != UA_NULL) {
+    if(session->channel != NULL) {
         UA_free(se);
         return;
     }
@@ -68,9 +71,9 @@ void UA_SecureChannel_attachSession(UA_SecureChannel *channel, UA_Session *sessi
 
 void UA_SecureChannel_detachSession(UA_SecureChannel *channel, UA_Session *session) {
     if(session)
-        session->channel = UA_NULL;
-    struct SessionEntry *se;
-    LIST_FOREACH(se, &channel->sessions, pointers) {
+        session->channel = NULL;
+    struct SessionEntry *se, *temp;
+    LIST_FOREACH_SAFE(se, &channel->sessions, pointers, temp) {
         if(se->session != session)
             continue;
         LIST_REMOVE(se, pointers);
@@ -86,7 +89,7 @@ UA_Session * UA_SecureChannel_getSession(UA_SecureChannel *channel, UA_NodeId *t
             break;
     }
     if(!se)
-        return UA_NULL;
+        return NULL;
     return se->session;
 }
 

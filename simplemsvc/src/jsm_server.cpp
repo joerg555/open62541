@@ -222,7 +222,7 @@ int main(int argc, char** argv)
     signal(SIGINT, stopHandler); /* catches ctrl-c */
 
     UA_Server *server = UA_Server_new(UA_ServerConfig_standard);
-    m_Ualogger = Logger_Stdout_new();
+    m_Ualogger = Logger_Stdout;
     UA_Server_setLogger(server, m_Ualogger);
     UA_ByteString certificate = loadCertificate();
     UA_Server_setServerCertificate(server, certificate);

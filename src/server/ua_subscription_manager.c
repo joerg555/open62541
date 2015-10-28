@@ -47,9 +47,9 @@ void SubscriptionManager_init(UA_Session *session) {
 }
 
 void SubscriptionManager_deleteMembers(UA_Session *session, UA_Server *server) {
-    UA_SubscriptionManager *manager = &(session->subscriptionManager);
-    UA_Subscription *current;
-    while((current = LIST_FIRST(&manager->serverSubscriptions))) {
+    UA_SubscriptionManager *manager = &session->subscriptionManager;
+    UA_Subscription *current, *temp;
+    LIST_FOREACH_SAFE(current, &manager->serverSubscriptions, listEntry, temp) {
         LIST_REMOVE(current, listEntry);
         UA_Subscription_deleteMembers(current, server);
         UA_free(current);
@@ -76,10 +76,10 @@ UA_Int32 SubscriptionManager_deleteMonitoredItem(UA_SubscriptionManager *manager
     if(!sub)
         return UA_STATUSCODE_BADSUBSCRIPTIONIDINVALID;
     
-    UA_MonitoredItem *mon;
-    LIST_FOREACH(mon, &sub->MonitoredItems, listEntry) {
+    UA_MonitoredItem *mon, *tmp_mon;
+    LIST_FOREACH_SAFE(mon, &sub->MonitoredItems, listEntry, tmp_mon) {
         if (mon->itemId == monitoredItemID) {
-            // FIXME!! don't we need to remove the list entry?
+            LIST_REMOVE(mon, listEntry);
             MonitoredItem_delete(mon);
             return UA_STATUSCODE_GOOD;
         }

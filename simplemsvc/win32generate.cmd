@@ -22,6 +22,7 @@ $x = $x -replace '#cmakedefine UA_MULTITHREADING', '// #define UA_MULTITHREADING
 $x = $x -replace '#cmakedefine ENABLE_METHODCALLS', '// #define ENABLE_METHODCALLS'; ^
 $x = $x -replace '#cmakedefine ENABLE_SUBSCRIPTIONS', '#define ENABLE_SUBSCRIPTIONS'; ^
 $x = $x -replace '#cmakedefine ENABLE_TYPEINTROSPECTION', '// #define ENABLE_TYPEINTROSPECTION'; ^
+$x = $x -replace '#cmakedefine UA_EMBEDDED_LIBC', '// #define UA_EMBEDDED_LIBC'; ^
 $x = $x -replace '__declspec\(dllimport\)', ''; ^
 $x} > src_generated\ua_config.h
 

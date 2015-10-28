@@ -43,7 +43,7 @@ endif()
 if(CMAKE_COMPILER_IS_GNUCC OR "x${CMAKE_C_COMPILER_ID}" STREQUAL "xClang")
     add_definitions(-std=c99 -pipe -Wall -Wextra -Werror -Wformat -Wno-unused-parameter
                       -Wno-unused-function -Wno-unused-label -Wpointer-arith -Wreturn-type -Wsign-compare -Wmultichar
-                      -Wcast-qual -Wmissing-prototypes -Wstrict-prototypes # -Wshadow -Wconversion
+                      -Wcast-qual -Wmissing-prototypes -Wstrict-prototypes #-Wshadow #-Wconversion
                       -Winit-self -Wuninitialized -Wformat-security -Wformat-nonliteral)
     # binary size reduction settings
     add_definitions(-ffunction-sections -fdata-sections -fno-stack-protector -fno-unwind-tables
@@ -86,7 +86,9 @@ set(exported_headers ${PROJECT_BINARY_DIR}/src_generated/ua_config.h
                      ${PROJECT_SOURCE_DIR}/include/ua_connection.h
                      ${PROJECT_SOURCE_DIR}/include/ua_log.h
                      ${PROJECT_SOURCE_DIR}/include/ua_server.h
+                     ${PROJECT_SOURCE_DIR}/include/ua_server_external_ns.h
                      ${PROJECT_SOURCE_DIR}/include/ua_client.h
+                     ${PROJECT_SOURCE_DIR}/include/ua_client_highlevel.h
                      ${PROJECT_SOURCE_DIR}/examples/networklayer_tcp.h
                      ${PROJECT_SOURCE_DIR}/examples/logger_stdout.h)
 set(internal_headers ${PROJECT_SOURCE_DIR}/src/ua_util.h
@@ -113,7 +115,6 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/src/ua_securechannel.c
                 ${PROJECT_SOURCE_DIR}/src/ua_session.c
                 ${PROJECT_SOURCE_DIR}/src/server/ua_server.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_server_addressspace.c
                 ${PROJECT_SOURCE_DIR}/src/server/ua_server_binary.c
                 ${PROJECT_SOURCE_DIR}/src/server/ua_nodes.c
                 ${PROJECT_SOURCE_DIR}/src/server/ua_server_worker.c
@@ -126,6 +127,7 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/src/server/ua_services_nodemanagement.c
                 ${PROJECT_SOURCE_DIR}/src/server/ua_services_view.c
                 ${PROJECT_SOURCE_DIR}/src/client/ua_client.c
+                ${PROJECT_SOURCE_DIR}/src/client/ua_client_highlevel.c
                 ${PROJECT_SOURCE_DIR}/examples/networklayer_tcp.c
                 ${PROJECT_SOURCE_DIR}/examples/logger_stdout.c
                 ${PROJECT_SOURCE_DIR}/deps/pcg_basic.c)
@@ -142,16 +144,22 @@ else()
   set(generate_typeintrospection "")
 endif()
 
+option(UA_EMBEDDED_LIBC "Target has no libc, use internal definitions" OFF)
+if(UA_EMBEDDED_LIBC)
+  list(APPEND lib_sources ${PROJECT_SOURCE_DIR}/deps/libc_string.c)
+endif()
+
 option(ENABLE_SUBSCRIPTIONS "Enable compilation of subscription and monitoring support." OFF)
 if(ENABLE_SUBSCRIPTIONS)
   set(ENABLE_SUBSCRIPTIONS ON) #to propagate it to the config file
   list(APPEND lib_sources ${PROJECT_SOURCE_DIR}/src/server/ua_services_subscription.c
                           ${PROJECT_SOURCE_DIR}/src/server/ua_subscription.c
-                          ${PROJECT_SOURCE_DIR}/src/server/ua_subscription_manager.c)
+                          ${PROJECT_SOURCE_DIR}/src/server/ua_subscription_manager.c
+                          ${PROJECT_SOURCE_DIR}/src/client/ua_client_highlevel_subscriptions.c)
   ##append subscription headers at before ua_session.
   list(FIND internal_headers "${PROJECT_SOURCE_DIR}/src/ua_session.h" UaSessionPos)
   list(INSERT internal_headers  ${UaSessionPos} ${PROJECT_SOURCE_DIR}/src/server/ua_subscription.h
-                          ${PROJECT_SOURCE_DIR}/src/server/ua_subscription_manager.h)
+                                                ${PROJECT_SOURCE_DIR}/src/server/ua_subscription_manager.h)
 
   add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/src_generated/ua_types_generated.c
                             ${PROJECT_BINARY_DIR}/src_generated/ua_types_generated.h
@@ -234,9 +242,9 @@ if(ENABLE_EXTERNAL_NAMESPACES)
 endif()
 
 ## enable dynamic nodeset
-option(ENABLE_ADDNODES "Enable dynamic addition of nodes" ON)
-if(ENABLE_ADDNODES)
-    add_definitions(-DENABLE_ADDNODES )
+option(ENABLE_NODEMANAGEMENT "Enable dynamic addition and removal of nodes" ON)
+if(ENABLE_NODEMANAGEMENT)
+    add_definitions(-DENABLE_NODEMANAGEMENT)
 endif()
 
 ## set the precompiler flags
