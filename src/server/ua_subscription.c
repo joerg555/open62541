@@ -267,7 +267,6 @@ static void Subscription_timedUpdateNotificationsJob(UA_Server *server, void *da
     Subscription_updateNotifications(sub);
 }
 
-
 UA_StatusCode Subscription_createdUpdateJob(UA_Server *server, UA_Guid jobId, UA_Subscription *sub) {
     if(server == NULL || sub == NULL)
         return UA_STATUSCODE_BADSERVERINDEXINVALID;
@@ -296,7 +295,7 @@ UA_StatusCode Subscription_registerUpdateJob(UA_Server *server, UA_Subscription 
     // Practically enough, the client sends a uint32 in ms, which we store as datetime, which here is required in as uint32 in ms as the interval
     UA_StatusCode retval = UA_Server_addRepeatedJob(server, *sub->timedUpdateJob, sub->publishingInterval,
                                                     &sub->timedUpdateJobGuid);
-    if(!retval)
+    if(retval == UA_STATUSCODE_GOOD)
         sub->timedUpdateIsRegistered = UA_TRUE;
     return retval;
 }
@@ -381,30 +380,37 @@ UA_Boolean MonitoredItem_CopyMonitoredValueToVariant(UA_UInt32 attributeID, cons
     switch(attributeID) {
     case UA_ATTRIBUTEID_NODEID:
         UA_Variant_setScalarCopy(&dst->value, (const UA_NodeId*)&src->nodeId, &UA_TYPES[UA_TYPES_NODEID]);
+        dst->hasValue = UA_TRUE;
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_NODECLASS:
         UA_Variant_setScalarCopy(&dst->value, (const UA_Int32*)&src->nodeClass, &UA_TYPES[UA_TYPES_INT32]);
+        dst->hasValue = UA_TRUE;
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_BROWSENAME:
         UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->browseName, &UA_TYPES[UA_TYPES_QUALIFIEDNAME]);
+        dst->hasValue = UA_TRUE;
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_DISPLAYNAME:
         UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->displayName, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]);
+        dst->hasValue = UA_TRUE;
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_DESCRIPTION:
         UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->displayName, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]);
+        dst->hasValue = UA_TRUE;
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_WRITEMASK:
         UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->writeMask, &UA_TYPES[UA_TYPES_UINT32]);
+        dst->hasValue = UA_TRUE;
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_USERWRITEMASK:
         UA_Variant_setScalarCopy(&dst->value, (const UA_String*)&src->writeMask, &UA_TYPES[UA_TYPES_UINT32]);
+        dst->hasValue = UA_TRUE;
         samplingError = UA_FALSE;
         break;
     case UA_ATTRIBUTEID_ISABSTRACT:
@@ -422,6 +428,7 @@ UA_Boolean MonitoredItem_CopyMonitoredValueToVariant(UA_UInt32 attributeID, cons
             const UA_VariableNode *vsrc = (const UA_VariableNode*)src;
             if(srcAsVariableNode->valueSource == UA_VALUESOURCE_VARIANT) {
                 UA_Variant_copy(&vsrc->value.variant.value, &dst->value);
+                dst->hasValue = UA_TRUE;
                 //no onRead callback here since triggered by a subscription
                 samplingError = UA_FALSE;
             } else {
