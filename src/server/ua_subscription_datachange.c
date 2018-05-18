@@ -372,7 +372,7 @@ sampleCallbackWithValue(UA_Server *server, UA_Subscription *sub,
 }
 
 void
-UA_MonitoredItem_SampleCallback(UA_Server *server,
+UA_MonitoredItem_SampleCallbackOld(UA_Server *server,
                                 UA_MonitoredItem *monitoredItem) {
     UA_Subscription *sub = monitoredItem->subscription;
     if(monitoredItem->monitoredItemType != UA_MONITOREDITEMTYPE_CHANGENOTIFY) {
@@ -410,6 +410,104 @@ UA_MonitoredItem_SampleCallback(UA_Server *server,
         if(valueEncoding.data != stackValueEncoding)
             UA_ByteString_deleteMembers(&valueEncoding);
         UA_DataValue_deleteMembers(&value);
+    }
+}
+
+void
+UA_MonitoredItem_SampleCallback(UA_Server *server,
+                                UA_MonitoredItem *monitoredItem) {
+    UA_Subscription *sub = monitoredItem->subscription;
+    if(monitoredItem->monitoredItemType != UA_MONITOREDITEMTYPE_CHANGENOTIFY) {
+        UA_LOG_DEBUG_SESSION(server->config.logger, sub->session,
+                             "Subscription %u | MonitoredItem %i | "
+                             "Not a data change notification",
+                             sub->subscriptionId, monitoredItem->monitoredItemId);
+        return;
+    }
+
+    /* Read the value */
+    UA_ReadValueId rvid;
+    UA_ReadValueId_init(&rvid);
+    rvid.nodeId = monitoredItem->monitoredNodeId;
+    rvid.attributeId = monitoredItem->attributeId;
+    rvid.indexRange = monitoredItem->indexRange;
+
+    /* Stack-allocate some memory for the value encoding. We might heap-allocate
+     * more memory if needed. This is just enough for scalars and small
+     * structures. */
+    UA_STACKARRAY(UA_Byte, stackValueEncoding, UA_VALUENCODING_MAXSTACK);
+    UA_ByteString valueEncoding;
+    valueEncoding.data = stackValueEncoding;
+    valueEncoding.length = UA_VALUENCODING_MAXSTACK;
+    UA_DataValue dv;
+
+    UA_Boolean changed = UA_Server_compareWithSession(
+        server, sub->session, &rvid, 
+        monitoredItem->timestampsToReturn, detectValueChange, monitoredItem, &dv, &valueEncoding);
+    if (!changed)
+        return;
+
+    /* Allocate the entry for the publish queue */
+    UA_Notification *newNotification =
+        (UA_Notification *)UA_malloc(sizeof(UA_Notification));
+    if (!newNotification) {
+        UA_LOG_WARNING_SESSION(server->config.logger, sub->session,
+            "Subscription %u | MonitoredItem %i | "
+            "Item for the publishing queue could not be allocated",
+            sub->subscriptionId, monitoredItem->monitoredItemId);
+        return;
+    }
+
+    /* Copy valueEncoding on the heap for the next comparison (if not already done) */
+    if (valueEncoding.data == stackValueEncoding) {
+        UA_ByteString cbs;
+        if (UA_ByteString_copy(&valueEncoding, &cbs) != UA_STATUSCODE_GOOD) {
+            UA_LOG_WARNING_SESSION(server->config.logger, sub->session,
+                "Subscription %u | MonitoredItem %i | "
+                "ByteString to compare values could not be created",
+                sub->subscriptionId, monitoredItem->monitoredItemId);
+            UA_free(newNotification);
+            return;
+        }
+        valueEncoding = cbs;
+    }
+
+    newNotification->data.value = dv; /* Just copy the value and do not release it */
+
+    /* <-- Point of no return --> */
+
+    UA_LOG_DEBUG_SESSION(server->config.logger, sub->session,
+        "Subscription %u | MonitoredItem %u | Sampled a new value",
+        sub->subscriptionId, monitoredItem->monitoredItemId);
+
+    newNotification->mon = monitoredItem;
+
+    /* Replace the encoding for comparison */
+    //if (dv.value.type == monitoredItem->lastValue.type)
+    //{
+    //    monitoredItem->lastValue = dv.value;
+    //}
+    //else
+    {
+        UA_Variant_deleteMembers(&monitoredItem->lastValue);
+        UA_Variant_copy(&dv.value, &monitoredItem->lastValue);
+    }
+    UA_ByteString_deleteMembers(&monitoredItem->lastSampledValue);
+    monitoredItem->lastSampledValue = valueEncoding;
+
+    /* Add the notification to the end of local and global queue */
+    TAILQ_INSERT_TAIL(&monitoredItem->queue, newNotification, listEntry);
+    TAILQ_INSERT_TAIL(&sub->notificationQueue, newNotification, globalEntry);
+    ++monitoredItem->queueSize;
+    ++sub->notificationQueueSize;
+
+    /* Remove some notifications if the queue is beyond maximum capacity */
+    MonitoredItem_ensureQueueSpace(monitoredItem);
+
+    /* Clean up */
+    if(!newNotification) {
+        if(valueEncoding.data != stackValueEncoding)
+            UA_ByteString_deleteMembers(&valueEncoding);
     }
 }
 

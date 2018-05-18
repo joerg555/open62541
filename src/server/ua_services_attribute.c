@@ -476,6 +476,56 @@ UA_Server_readWithSession(UA_Server *server, UA_Session *session,
     return dv;
 }
 
+/*
+  My Job:
+  check Value change
+  - no change: return false, dont touch "rval"
+  - change: allocate chaged value in "rval"
+*/
+UA_Boolean
+UA_Server_compareWithSession(UA_Server *server, UA_Session *session,
+                          const UA_ReadValueId *item,
+                          UA_TimestampsToReturn timestampsToReturn,
+                          UA_Boolean (*detectValueChange)(void *mon, UA_DataValue *value, UA_ByteString *encoding),
+                          void *mon,
+                          UA_DataValue *rval,
+                          UA_ByteString *encoding) {
+    /* Get the node */
+    /* Read the value */
+    const UA_Node *node = UA_Nodestore_get(server, &item->nodeId);
+    UA_DataValue dv;
+    UA_DataValue_init(&dv);
+    if (!node) {
+        dv.hasStatus = true;
+        dv.status = UA_STATUSCODE_BADNODEIDUNKNOWN;
+    } else {
+        /* Perform the read operation */
+        Read(node, server, session, timestampsToReturn, item, &dv);
+    }
+    UA_Boolean newNotification = detectValueChange(mon, &dv, encoding);
+    if (newNotification) {
+        if (dv.hasValue && dv.value.storageType == UA_VARIANT_DATA_NODELETE) {
+            // alloc copy
+            UA_StatusCode retval = UA_DataValue_copy(&dv, rval);
+            if (retval != UA_STATUSCODE_GOOD) {
+                UA_DataValue_init(rval);
+                dv.hasStatus = true;
+                dv.status = retval;
+            }
+        } else {
+            // copy alloc OK
+            *rval = dv;
+        }
+    } else {
+        if (dv.value.storageType != UA_VARIANT_DATA_NODELETE)
+            UA_DataValue_deleteMembers(&dv);
+    }
+    /* Release the node and return */
+    if (node)
+        UA_Nodestore_release(server, node);
+    return newNotification;
+}
+
 /* Exposes the Read service to local users */
 UA_DataValue
 UA_Server_read(UA_Server *server, const UA_ReadValueId *item,

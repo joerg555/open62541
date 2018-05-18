@@ -305,6 +305,15 @@ UA_Server_readWithSession(UA_Server *server, UA_Session *session,
                           const UA_ReadValueId *item,
                           UA_TimestampsToReturn timestampsToReturn);
 
+UA_Boolean
+UA_Server_compareWithSession(UA_Server *server, UA_Session *session,
+                          const UA_ReadValueId *item,
+                          UA_TimestampsToReturn timestampsToReturn,
+                          UA_Boolean (*detectValueChange)(void *mon, UA_DataValue *value, UA_ByteString *encoding),
+                          void *mon,
+                          UA_DataValue *dv,
+                          UA_ByteString *encoding );
+
 /* Checks if a registration timed out and removes that registration.
  * Should be called periodically in main loop */
 void UA_Discovery_cleanupTimedOut(UA_Server *server, UA_DateTime nowMonotonic);
