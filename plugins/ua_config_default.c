@@ -26,6 +26,7 @@
 #include <open62541/plugin/securitypolicy_default.h>
 #include <open62541/server_config_default.h>
 
+#ifdef UA_ENABLE_SERVER
 /* Struct initialization works across ANSI C/C99/C++ if it is done when the
  * variable is first declared. Assigning values to existing structs is
  * heterogeneous across the three. */
@@ -53,6 +54,7 @@ UA_Server_new() {
 
     return UA_Server_newWithConfig(&config);
 }
+#endif
 
 /*******************************/
 /* Default Connection Settings */
@@ -68,6 +70,7 @@ const UA_ConnectionConfig UA_ConnectionConfig_default = {
     2 << 14  /* .remoteMaxChunkCount, 16k */
 };
 
+#ifdef UA_ENABLE_SERVER
 /***************************/
 /* Default Server Settings */
 /***************************/
@@ -76,7 +79,9 @@ const UA_ConnectionConfig UA_ConnectionConfig_default = {
 #define PRODUCT_NAME "open62541 OPC UA Server"
 #define PRODUCT_URI "http://open62541.org"
 #define APPLICATION_NAME "open62541-based OPC UA Application"
+#endif
 #define APPLICATION_URI "urn:unconfigured:application"
+#ifdef UA_ENABLE_SERVER
 #define APPLICATION_URI_SERVER "urn:open62541.server.application"
 
 #define STRINGIFY(arg) #arg
@@ -725,6 +730,7 @@ UA_ServerConfig_setDefaultWithSecurityPolicies(UA_ServerConfig *conf,
 /***************************/
 /* Default Client Settings */
 /***************************/
+#endif
 
 UA_Client * UA_Client_new() {
     UA_ClientConfig config;

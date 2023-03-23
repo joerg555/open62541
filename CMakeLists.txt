@@ -133,6 +133,7 @@ option(UA_ENABLE_HISTORIZING "Enable basic support for historical access (client
 option(UA_ENABLE_METHODCALLS "Enable the Method service set" ON)
 option(UA_ENABLE_NODEMANAGEMENT "Enable dynamic addition and removal of nodes at runtime" ON)
 option(UA_ENABLE_SUBSCRIPTIONS "Enable subscriptions support." ON)
+option(UA_ENABLE_SERVER "Enable server components" ON)
 option(UA_ENABLE_SUBSCRIPTIONS_EVENTS "Enable the use of event subscriptions" OFF)
 option(UA_ENABLE_DISCOVERY "Enable Discovery Service (LDS)" OFF)
 option(UA_ENABLE_SUBSCRIPTIONS_ALARMS_CONDITIONS "Enable the use of A&C. (EXPERIMENTAL)" OFF)
@@ -196,6 +197,7 @@ if(UA_BUILD_FUZZING OR UA_BUILD_OSS_FUZZ OR UA_BUILD_FUZZING_CORPUS)
     set(UA_ENABLE_HISTORIZING ON CACHE STRING "" FORCE)
     set(UA_ENABLE_JSON_ENCODING ON CACHE STRING "" FORCE)
     set(UA_ENABLE_SUBSCRIPTIONS ON CACHE STRING "" FORCE)
+    set(UA_ENABLE_SERVER ON CACHE STRING "" FORCE)
     set(UA_ENABLE_SUBSCRIPTIONS_EVENTS ON CACHE STRING "" FORCE)
 endif()
 
@@ -772,6 +774,32 @@ set(internal_headers ${PROJECT_SOURCE_DIR}/deps/open62541_queue.h
                      ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_config.h)
 
 # TODO: make client optional
+set(lib_sources_srv ${PROJECT_SOURCE_DIR}/src/server/ua_session.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_nodes.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_server.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_server_ns0.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_server_config.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_server_binary.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_server_utils.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_server_discovery.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_server_async.c
+                    ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_networkmessage.c
+                    ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_writer.c
+                    ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_reader.c
+                    ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_manager.c
+                    ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_ns0.c
+                    # services
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_view.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_method.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_session.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_attribute.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_discovery.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_subscription.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_monitoreditem.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_securechannel.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_nodemanagement.c
+                    ${PROJECT_SOURCE_DIR}/src/server/ua_services_discovery_multicast.c)
+
 set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_binary.c
                 ${PROJECT_SOURCE_DIR}/src/ua_types_print.c
@@ -783,31 +811,6 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/src/ua_connection.c
                 ${PROJECT_SOURCE_DIR}/src/ua_securechannel.c
                 ${PROJECT_SOURCE_DIR}/src/ua_securechannel_crypto.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_session.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_nodes.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_server.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_server_ns0.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_server_config.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_server_binary.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_server_utils.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_server_discovery.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_server_async.c
-                ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_networkmessage.c
-                ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_writer.c
-                ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_reader.c
-                ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_manager.c
-                ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_ns0.c
-                # services
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_view.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_method.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_session.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_attribute.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_discovery.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_subscription.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_monitoreditem.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_securechannel.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_nodemanagement.c
-                ${PROJECT_SOURCE_DIR}/src/server/ua_services_discovery_multicast.c
                 # client
                 ${PROJECT_SOURCE_DIR}/src/client/ua_client.c
                 ${PROJECT_SOURCE_DIR}/src/client/ua_client_connect.c
@@ -834,13 +837,18 @@ set(default_plugin_headers ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugi
 
 set(default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_log_stdout.c
                            ${PROJECT_SOURCE_DIR}/plugins/ua_accesscontrol_default.c
-                           ${PROJECT_SOURCE_DIR}/plugins/ua_nodestore_ziptree.c
-                           ${PROJECT_SOURCE_DIR}/plugins/ua_nodestore_hashmap.c
                            ${PROJECT_SOURCE_DIR}/plugins/ua_config_default.c
                            ${PROJECT_SOURCE_DIR}/plugins/crypto/ua_pki_none.c
                            ${PROJECT_SOURCE_DIR}/plugins/crypto/ua_securitypolicy_none.c
 )
 
+# we dont need all for client only
+if (UA_ENABLE_SERVER)
+    list(APPEND lib_sources ${lib_sources_srv})
+    list(APPEND default_plugin_headers
+        ${PROJECT_SOURCE_DIR}/plugins/ua_nodestore_ziptree.c
+        ${PROJECT_SOURCE_DIR}/plugins/ua_nodestore_hashmap.c)
+endif()
 # Syslog-logging on Linux and Unices
 if(UNIX)
     list(APPEND default_plugin_headers
@@ -848,7 +856,7 @@ if(UNIX)
     list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_log_syslog.c)
 endif()
 
-if(UA_GENERATED_NAMESPACE_ZERO)
+if(UA_GENERATED_NAMESPACE_ZERO AND UA_ENABLE_SERVER)
     list(APPEND internal_headers ${PROJECT_BINARY_DIR}/src_generated/open62541/namespace0_generated.h)
     list(APPEND lib_sources ${PROJECT_BINARY_DIR}/src_generated/open62541/namespace0_generated.c)
 endif()
@@ -953,7 +961,7 @@ if(UA_ENABLE_JSON_ENCODING)
                             ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_json.c)
 endif()
 
-if(UA_ENABLE_SUBSCRIPTIONS)
+if(UA_ENABLE_SUBSCRIPTIONS AND UA_ENABLE_SERVER)
     list(APPEND lib_sources ${PROJECT_SOURCE_DIR}/src/server/ua_subscription.c
                             ${PROJECT_SOURCE_DIR}/src/server/ua_subscription_monitoreditem.c
                             ${PROJECT_SOURCE_DIR}/src/server/ua_subscription_datachange.c)
