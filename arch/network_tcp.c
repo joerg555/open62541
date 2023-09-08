@@ -486,7 +486,6 @@ setFDSet(ServerNetworkLayerTCP *layer, fd_set *fdset) {
     return highestfd;
 }
 
-#ifdef UA_ENABLE_SERVER
 static UA_StatusCode
 ServerNetworkLayerTCP_listen(UA_ServerNetworkLayer *nl, UA_Server *server,
                              UA_UInt16 timeout) {
@@ -653,7 +652,6 @@ UA_ServerNetworkLayerTCP(UA_ConnectionConfig config, UA_UInt16 port,
 
     return nl;
 }
-#endif
 
 typedef struct TCPClientConnection {
     struct addrinfo hints, *server;
