@@ -286,6 +286,15 @@ struct UA_ServerConfig {
     UA_Boolean deleteEventCapability;
     UA_Boolean deleteAtTimeDataCapability;
 #endif
+    /* Callback, when NodeID unknown
+     *
+     * @param server Allows the access to the server object
+     * @param serverContext An optional pointer to user-defined data 
+     * @param nodeid Id of the node in question
+     * @return UA_STATUSCODE_GOOD try again to get node from nodestore */
+    void *NodeIDUnknownServerContext;
+    UA_StatusCode (*NodeIDUnknownCallback)(UA_Server *server, void *serverContext,
+                                           const UA_NodeId *nodeId);
 };
 
 void UA_EXPORT

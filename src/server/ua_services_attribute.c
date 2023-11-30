@@ -625,9 +625,19 @@ UA_Server_readWithSession(UA_Server *server, UA_Session *session,
     /* Get the node */
     const UA_Node *node = UA_NODESTORE_GET(server, &item->nodeId);
     if(!node) {
-        dv.hasStatus = true;
-        dv.status = UA_STATUSCODE_BADNODEIDUNKNOWN;
-        return dv;
+        /* if unknown nodeId try to give the server app a chance to get it*/
+        if(server->config.NodeIDUnknownCallback) {
+            UA_StatusCode st = server->config.NodeIDUnknownCallback(
+                server, server->config.NodeIDUnknownServerContext, &item->nodeId);
+            if(st == UA_STATUSCODE_GOOD)
+                node = UA_NODESTORE_GET(server, &item->nodeId);
+        }
+        if(!node) 
+        {
+            dv.hasStatus = true;
+            dv.status = UA_STATUSCODE_BADNODEIDUNKNOWN;
+            return dv;
+        }
     }
 
     /* Perform the read operation */
