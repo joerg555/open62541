@@ -119,12 +119,16 @@ struct UA_Client {
     UA_SessionState oldSessionState;
     UA_StatusCode oldConnectStatus;
 
+    UA_Boolean findServersHandshake;   /* Ongoing FindServers */
     UA_Boolean endpointsHandshake;     /* Ongoing GetEndpoints */
     UA_Boolean noSession;              /* Don't open a session */
 
     /* Connection */
     UA_Connection connection;
-    UA_String endpointUrl; /* Only for the async connect */
+    UA_String endpointUrl;  /* Used to extract address and port */
+    UA_String discoveryUrl; /* The discoveryUrl (also used to signal which
+                               application we want to connect to in the HEL/ACK
+                               handshake). */
 
     /* SecureChannel */
     UA_SecureChannel channel;
@@ -154,6 +158,7 @@ struct UA_Client {
 #endif
 };
 
+UA_StatusCode connectSync(UA_Client *client); /* Only exposed for unit tests */
 void notifyClientState(UA_Client *client);
 void processERRResponse(UA_Client *client, const UA_ByteString *chunk);
 void processACKResponse(UA_Client *client, const UA_ByteString *chunk);
