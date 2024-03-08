@@ -328,16 +328,22 @@ readSessionDiagnostics(UA_Server *server,
                        const UA_NodeId *nodeId, void *nodeContext,
                        UA_Boolean sourceTimestamp,
                        const UA_NumericRange *range, UA_DataValue *value) {
+    UA_LOCK(&server->serviceMutex);
+
     /* Get the Session */
     UA_Session *session = UA_Server_getSessionById(server, sessionId);
-    if(!session)
+    if(!session) {
+        UA_UNLOCK(&server->serviceMutex);
         return UA_STATUSCODE_BADINTERNALERROR;
+    }
     
     /* Read the BrowseName */
     UA_QualifiedName bn;
     UA_StatusCode res = readWithReadValue(server, nodeId, UA_ATTRIBUTEID_BROWSENAME, &bn);
-    if(res != UA_STATUSCODE_GOOD)
+    if(res != UA_STATUSCODE_GOOD) {
+        UA_UNLOCK(&server->serviceMutex);
         return res;
+    }
 
     union {
         UA_SessionDiagnosticsDataType sddt;
@@ -399,7 +405,7 @@ readSessionDiagnostics(UA_Server *server,
         res = UA_Variant_setScalarCopy(&value->value, content, type);
     } else {
         size_t len = *(size_t*)content;
-        content = (void*)(((uintptr_t)content) + sizeof(size_t));
+        content = *(void**)((uintptr_t)content + sizeof(size_t));
         res = UA_Variant_setArrayCopy(&value->value, content, len, type);
     }
     if(UA_LIKELY(res == UA_STATUSCODE_GOOD))
@@ -412,6 +418,7 @@ readSessionDiagnostics(UA_Server *server,
 
  cleanup:
     UA_QualifiedName_clear(&bn);
+    UA_UNLOCK(&server->serviceMutex);
     return res;
 }
 
