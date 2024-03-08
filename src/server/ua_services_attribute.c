@@ -636,9 +636,24 @@ Operation_Read(UA_Server *server, UA_Session *session, UA_TimestampsToReturn *tt
                                    UA_REFERENCETYPESET_NONE,
                                    UA_BROWSEDIRECTION_INVALID);
     if(!node) {
-        dv->hasStatus = true;
-        dv->status = UA_STATUSCODE_BADNODEIDUNKNOWN;
-        return;
+        /* if unknown nodeId try to give the server app a chance to get it*/
+        if(server->config.NodeIDUnknownCallback) {
+            UA_StatusCode st = server->config.NodeIDUnknownCallback(
+                server, server->config.NodeIDUnknownServerContext, &item->nodeId);
+            if(st == UA_STATUSCODE_GOOD)
+            {
+        UA_NODESTORE_GET_SELECTIVE(server, &rvi->nodeId,
+                                   attributeId2AttributeMask((UA_AttributeId)rvi->attributeId),
+                                   UA_REFERENCETYPESET_NONE,
+                                   UA_BROWSEDIRECTION_INVALID);
+            }
+        }
+        if(!node) 
+        {
+            dv->hasStatus = true;
+            dv->status = UA_STATUSCODE_BADNODEIDUNKNOWN;
+            return;
+        }
     }
 
     /* Perform the read operation */
@@ -691,7 +706,6 @@ readWithSession(UA_Server *server, UA_Session *session,
 
     UA_DataValue dv;
     UA_DataValue_init(&dv);
-    Operation_Read(server, session, &timestampsToReturn, item, &dv);
     return dv;
 }
 

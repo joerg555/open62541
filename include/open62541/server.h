@@ -374,24 +374,14 @@ struct UA_ServerConfig {
     UA_Boolean deleteEventCapability;
     UA_Boolean deleteAtTimeDataCapability;
 #endif
-
-    /**
-     * Reverse Connect
-     * ^^^^^^^^^^^^^^^ */
-    UA_UInt32 reverseReconnectInterval; /* Default is 15000 ms */
-
-    /**
-     * Certificate Password Callback
-     * ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */
-#ifdef UA_ENABLE_ENCRYPTION
-    /* If the private key is in PEM format and password protected, this callback
-     * is called during initialization to get the password to decrypt the
-     * private key. The memory containing the password is freed by the client
-     * after use. The callback should be set early, other parts of the client
-     * config setup may depend on it. */
-    UA_StatusCode (*privateKeyPasswordCallback)(UA_ServerConfig *sc,
-                                                UA_ByteString *password);
-#endif
+    /* Callback, when NodeID unknown
+     *
+     * @param server Allows the access to the server object
+     * @param serverContext An optional pointer to user-defined data 
+     * @param nodeid Id of the node in question
+     * @return UA_STATUSCODE_GOOD try again to get node from nodestore */
+    void *NodeIDUnknownServerContext;
+    UA_StatusCode (*NodeIDUnknownCallback)(UA_Server *server, void *serverContext,
 };
 
 void UA_EXPORT
