@@ -54,8 +54,10 @@ int main(int argc, char* argv[]) {
     for(size_t deleteCount = 0; deleteCount < trustListSize; deleteCount++) {
         UA_ByteString_clear(&trustList[deleteCount]);
     }
-
-    UA_StatusCode retval = UA_Client_connectUsername(client, endpointUrl, "paula", "paula123");
+    UA_String_clear(&config->clientDescription.applicationUri);
+    config->clientDescription.applicationUri = UA_STRING_ALLOC("urn:JSM92:M2M-Manager");
+    //UA_StatusCode retval = UA_Client_connectUsername(client, endpointUrl, "paula", "paula123");
+    UA_StatusCode retval = UA_Client_connect(client, endpointUrl);
     if(retval != UA_STATUSCODE_GOOD) {
         UA_Client_delete(client);
         return EXIT_FAILURE;

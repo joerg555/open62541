@@ -12,11 +12,15 @@
  *
  * */
 
+#ifdef AMALGAN
+//#include "open62541.h"
+#else
 #include <open62541/client.h>
 #include <open62541/client_config_default.h>
 #include <open62541/client_subscriptions.h>
 #include <open62541/plugin/log_stdout.h>
 #include <open62541/util.h>
+#endif
 
 #include <signal.h>
 
@@ -424,7 +428,7 @@ int main(int argc, char *argv[]) {
         UA_Client_delete(client);
         return EXIT_FAILURE;
     }
-
+    
     item.requestedParameters.filter.encoding = UA_EXTENSIONOBJECT_DECODED;
     item.requestedParameters.filter.content.decoded.data = &filter;
     item.requestedParameters.filter.content.decoded.type = &UA_TYPES[UA_TYPES_EVENTFILTER];
