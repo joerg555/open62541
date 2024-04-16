@@ -13,7 +13,9 @@
 #include <signal.h>
 
 #ifdef _MSC_VER
-#pragma warning(disable:4996) // warning C4996: 'UA_Client_Subscriptions_addMonitoredEvent': was declared deprecated
+#pragma warning(                                                                         \
+    disable : 4996)  // warning C4996: 'UA_Client_Subscriptions_addMonitoredEvent': was
+                     // declared deprecated
 #endif
 
 #ifdef __clang__
@@ -25,35 +27,113 @@
 #endif
 
 static UA_Boolean running = true;
-static void stopHandler(int sig) {
+static void
+stopHandler(int sig) {
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "received ctrl-c");
     running = false;
 }
 
+const char *m_sEventBrNameTab[] = {
+    "Time",        // OpcUa_BrowseName_
+    "SourceName",  // OpcUa_BrowseName_SourceName
+    "Message",     // OpcUa_BrowseName_
+    "Severity",    // OpcUa_BrowseName_
+    "EventType",   // OpcUa_BrowseName_EventType
+    //"EventId",     // OpcUa_BrowseName_EventId
+    //"SourceNode",  // OpcUa_BrowseName_SourceNode
+};
+
+const size_t nSelectClauses = _countof(m_sEventBrNameTab);
+
 #ifdef UA_ENABLE_SUBSCRIPTIONS
 
+static bool
+SetSimpleBasicEvent(UA_SimpleAttributeOperand *pSA, const char *sBrowsePath) {
+    UA_SimpleAttributeOperand_init(pSA);
+    pSA->typeDefinitionId = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE);
+    pSA->browsePathSize = 1;
+    pSA->browsePath = (UA_QualifiedName *)UA_Array_new(pSA->browsePathSize,
+                                                       &UA_TYPES[UA_TYPES_QUALIFIEDNAME]);
+    if(pSA->browsePath == NULL)
+        return false;
+    pSA->attributeId = UA_ATTRIBUTEID_VALUE;
+    pSA->browsePath[0] = UA_QUALIFIEDNAME_ALLOC(0, sBrowsePath);
+    return true;
+}
+
+char
+XtoA(unsigned uHex) {
+    uHex &= 0x0f;
+    if(uHex >= 0 && uHex <= 9)
+        return uHex + '0';
+    return uHex + 'a';
+}
+
+void
+UA_BytesToHexString(const UA_Byte *pBytes, unsigned nlen, UA_String *out) {
+    int n = nlen * 3 - 1;
+    out->data = UA_malloc(n);
+    out->length = n;
+
+    const UA_Byte *pByte = pBytes;
+    UA_Byte *pOut = out->data;
+    for(size_t nn = 0; true; pByte++) {
+        *pOut++ = XtoA(*pByte);
+        *pOut++ = XtoA(*pByte >> 4);
+        if(++nn >= nlen)
+            break;
+        *pOut++ = ' ';
+    }
+}
+
 static void
-handler_events(UA_Client *client, UA_UInt32 subId, void *subContext,
-               UA_UInt32 monId, void *monContext,
-               size_t nEventFields, UA_Variant *eventFields) {
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Notification");
+handler_events(UA_Client *client, UA_UInt32 subId, void *subContext, UA_UInt32 monId,
+               void *monContext, size_t nEventFields, UA_Variant *eventFields) {
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "*** Notification ***");
 
     /* The context should point to the monId on the stack */
-    UA_assert(*(UA_UInt32*)monContext == monId);
-
-    for(size_t i = 0; i < nEventFields; ++i) {
-        if(UA_Variant_hasScalarType(&eventFields[i], &UA_TYPES[UA_TYPES_UINT16])) {
-            UA_UInt16 severity = *(UA_UInt16 *)eventFields[i].data;
-            UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Severity: %u", severity);
-        } else if (UA_Variant_hasScalarType(&eventFields[i], &UA_TYPES[UA_TYPES_LOCALIZEDTEXT])) {
-            UA_LocalizedText *lt = (UA_LocalizedText *)eventFields[i].data;
+    UA_assert(*(UA_UInt32 *)monContext == monId);
+    UA_Variant *pEvField = eventFields;
+    for(size_t i = 0; i < nEventFields; i++, pEvField++) {
+        const char *sName = m_sEventBrNameTab[i];
+        if(!UA_Variant_isScalar(pEvField)) {
+            ;
+        } else if(pEvField->type == &UA_TYPES[UA_TYPES_UINT16]) {
+            UA_UInt16 severity = *(UA_UInt16 *)pEvField->data;
+            UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "%s: %u", sName,
+                        severity);
+        } else if(pEvField->type == &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]) {
+            UA_LocalizedText *lt = (UA_LocalizedText *)pEvField->data;
+            UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "%s: '%.*s'", sName,
+                        (int)lt->text.length, lt->text.data);
+        } else if(pEvField->type == &UA_TYPES[UA_TYPES_NODEID]) {
+            UA_String nodeIdName = UA_STRING_NULL;
+            UA_NodeId_print((UA_NodeId *)pEvField->data, &nodeIdName);
+            UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "%s: '%.*s'", sName,
+                        (int)nodeIdName.length, nodeIdName.data);
+            UA_String_clear(&nodeIdName);
+        } else if(pEvField->type == &UA_TYPES[UA_TYPES_STRING]) {
+            UA_String *pstr = (UA_String *)pEvField->data;
+            UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "%s: '%.*s'", sName,
+                        (int)pstr->length, pstr->data);
+        } else if(pEvField->type == &UA_TYPES[UA_TYPES_BYTESTRING]) {
+            const UA_ByteString *pBytes = (UA_ByteString *)pEvField->data;
+            int n = pBytes->length * 3;
+            UA_String UaValName;
+            UA_BytesToHexString(pBytes->data, pBytes->length, &UaValName);
+            UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "%s: '%.*s'", sName,
+                        (int)UaValName.length, UaValName.data);
+            UA_String_clear(&UaValName);
+        } else if(pEvField->type == &UA_TYPES[UA_TYPES_DATETIME]) {
+            UA_DateTimeStruct dts = UA_DateTime_toStruct(*(UA_DateTime *)pEvField->data);
             UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                        "Message: '%.*s'", (int)lt->text.length, lt->text.data);
-        }
-        else {
+                        "%s: %02u-%02u-%04u %02u:%02u:%02u.%03u", sName, dts.day,
+                        dts.month, dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
+        } else {
 #ifdef UA_ENABLE_TYPEDESCRIPTION
             UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                        "Don't know how to handle type: '%s'", eventFields[i].type->typeName);
+                        "Don't know how to handle %s: type: '%s'", sName,
+                        pEvField->type->typeName);
 #else
             UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                         "Don't know how to handle type, enable UA_ENABLE_TYPEDESCRIPTION "
@@ -63,47 +143,23 @@ handler_events(UA_Client *client, UA_UInt32 subId, void *subContext,
     }
 }
 
-const size_t nSelectClauses = 2;
-
 static UA_SimpleAttributeOperand *
 setupSelectClauses(void) {
-    UA_SimpleAttributeOperand *selectClauses = (UA_SimpleAttributeOperand*)
-        UA_Array_new(nSelectClauses, &UA_TYPES[UA_TYPES_SIMPLEATTRIBUTEOPERAND]);
+    UA_SimpleAttributeOperand *selectClauses = (UA_SimpleAttributeOperand *)UA_Array_new(
+        nSelectClauses, &UA_TYPES[UA_TYPES_SIMPLEATTRIBUTEOPERAND]);
     if(!selectClauses)
         return NULL;
 
-    for(size_t i =0; i<nSelectClauses; ++i) {
-        UA_SimpleAttributeOperand_init(&selectClauses[i]);
+    for(size_t i = 0; i < nSelectClauses; i++) {
+        SetSimpleBasicEvent(&selectClauses[i], m_sEventBrNameTab[i]);
     }
-
-    selectClauses[0].typeDefinitionId = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE);
-    selectClauses[0].browsePathSize = 1;
-    selectClauses[0].browsePath = (UA_QualifiedName*)
-        UA_Array_new(selectClauses[0].browsePathSize, &UA_TYPES[UA_TYPES_QUALIFIEDNAME]);
-    if(!selectClauses[0].browsePath) {
-        UA_SimpleAttributeOperand_delete(selectClauses);
-        return NULL;
-    }
-    selectClauses[0].attributeId = UA_ATTRIBUTEID_VALUE;
-    selectClauses[0].browsePath[0] = UA_QUALIFIEDNAME_ALLOC(0, "Message");
-
-    selectClauses[1].typeDefinitionId = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE);
-    selectClauses[1].browsePathSize = 1;
-    selectClauses[1].browsePath = (UA_QualifiedName*)
-        UA_Array_new(selectClauses[1].browsePathSize, &UA_TYPES[UA_TYPES_QUALIFIEDNAME]);
-    if(!selectClauses[1].browsePath) {
-        UA_SimpleAttributeOperand_delete(selectClauses);
-        return NULL;
-    }
-    selectClauses[1].attributeId = UA_ATTRIBUTEID_VALUE;
-    selectClauses[1].browsePath[0] = UA_QUALIFIEDNAME_ALLOC(0, "Severity");
-
     return selectClauses;
 }
 
 #endif
 
-int main(int argc, char *argv[]) {
+int
+main(int argc, char *argv[]) {
     signal(SIGINT, stopHandler);
     signal(SIGTERM, stopHandler);
 
@@ -127,20 +183,21 @@ int main(int argc, char *argv[]) {
 #ifdef UA_ENABLE_SUBSCRIPTIONS
     /* Create a subscription */
     UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
-    UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(client, request,
-                                                                            NULL, NULL, NULL);
+    UA_CreateSubscriptionResponse response =
+        UA_Client_Subscriptions_create(client, request, NULL, NULL, NULL);
     if(response.responseHeader.serviceResult != UA_STATUSCODE_GOOD) {
         UA_Client_disconnect(client);
         UA_Client_delete(client);
         return EXIT_FAILURE;
     }
     UA_UInt32 subId = response.subscriptionId;
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Create subscription succeeded, id %u", subId);
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                "Create subscription succeeded, id %u", subId);
 
     /* Add a MonitoredItem */
     UA_MonitoredItemCreateRequest item;
     UA_MonitoredItemCreateRequest_init(&item);
-    item.itemToMonitor.nodeId = UA_NODEID_NUMERIC(0, 2253); // Root->Objects->Server
+    item.itemToMonitor.nodeId = UA_NODEID_NUMERIC(0, 2253);  // Root->Objects->Server
     item.itemToMonitor.attributeId = UA_ATTRIBUTEID_EVENTNOTIFIER;
     item.monitoringMode = UA_MONITORINGMODE_REPORTING;
 
@@ -151,18 +208,18 @@ int main(int argc, char *argv[]) {
 
     item.requestedParameters.filter.encoding = UA_EXTENSIONOBJECT_DECODED;
     item.requestedParameters.filter.content.decoded.data = &filter;
-    item.requestedParameters.filter.content.decoded.type = &UA_TYPES[UA_TYPES_EVENTFILTER];
+    item.requestedParameters.filter.content.decoded.type =
+        &UA_TYPES[UA_TYPES_EVENTFILTER];
 
     UA_UInt32 monId = 0;
 
-    UA_MonitoredItemCreateResult result =
-        UA_Client_MonitoredItems_createEvent(client, subId,
-                                             UA_TIMESTAMPSTORETURN_BOTH, item,
-                                             &monId, handler_events, NULL);
+    UA_MonitoredItemCreateResult result = UA_Client_MonitoredItems_createEvent(
+        client, subId, UA_TIMESTAMPSTORETURN_BOTH, item, &monId, handler_events, NULL);
 
     if(result.statusCode != UA_STATUSCODE_GOOD) {
         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Could not add the MonitoredItem with %s", UA_StatusCode_name(retval));
+                    "Could not add the MonitoredItem with %s",
+                    UA_StatusCode_name(retval));
         goto cleanup;
     } else {
         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
@@ -175,10 +232,11 @@ int main(int argc, char *argv[]) {
         retval = UA_Client_run_iterate(client, 100);
 
     /* Delete the subscription */
- cleanup:
+cleanup:
     UA_MonitoredItemCreateResult_clear(&result);
     UA_Client_Subscriptions_deleteSingle(client, response.subscriptionId);
-    UA_Array_delete(filter.selectClauses, nSelectClauses, &UA_TYPES[UA_TYPES_SIMPLEATTRIBUTEOPERAND]);
+    UA_Array_delete(filter.selectClauses, nSelectClauses,
+                    &UA_TYPES[UA_TYPES_SIMPLEATTRIBUTEOPERAND]);
 #endif
 
     UA_Client_disconnect(client);
