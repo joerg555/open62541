@@ -63,6 +63,7 @@ typedef SSIZE_T ssize_t;
 # define UA_if_nametoindex if_nametoindex
 
 # include <iphlpapi.h>
+#pragma comment(lib, "iphlpapi.lib")
 
 #endif
 
