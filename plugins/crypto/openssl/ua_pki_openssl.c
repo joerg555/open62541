@@ -581,6 +581,54 @@ cleanup:
     return ret;
 }
 
+UA_StatusCode UA_EXPORT
+UA_GetCertificateURI(const UA_ByteString* certificate, UA_String* subjectURI)
+{
+    const unsigned char *pData;
+    X509 *certificateX509;
+    GENERAL_NAMES *pNames;
+    int i;
+    UA_StatusCode rc = UA_STATUSCODE_GOOD;
+
+    pData = certificate->data;
+    if(certificate->length == 0 || pData == NULL) {
+        return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+    }
+
+    certificateX509 = UA_OpenSSL_LoadCertificate(certificate);
+    if(certificateX509 == NULL) {
+        return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+    }
+
+    pNames = (GENERAL_NAMES *)X509_get_ext_d2i(certificateX509, NID_subject_alt_name,
+                                               NULL, NULL);
+    if(pNames != NULL) {
+        for(i = 0; i < sk_GENERAL_NAME_num(pNames); i++) {
+            GENERAL_NAME *value = sk_GENERAL_NAME_value(pNames, i);
+            if(value->type == GEN_URI) {
+                if(subjectURI->length > 0)
+                    UA_String_clear(subjectURI);
+                subjectURI->length = (size_t)value->d.ia5->length;
+                subjectURI->data = (UA_Byte *)UA_malloc(subjectURI->length);
+                if(subjectURI->data == NULL) {
+                    subjectURI->length = 0;
+                    rc = UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+                }
+                else {
+                    memcpy(subjectURI->data, (const char *)value->d.ia5->data,
+                           subjectURI->length);
+                }
+                break;
+            }
+        }
+        sk_GENERAL_NAME_pop_free(pNames, GENERAL_NAME_free);
+    } else {
+        rc = UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+    }
+    X509_free(certificateX509);
+    return rc;
+}
+
 static UA_StatusCode
 UA_CertificateVerification_VerifyApplicationURI (void *                verificationContext,
                                                  const UA_ByteString * certificate,
