@@ -1036,6 +1036,7 @@ typedef enum {
     UA_DATATYPEKIND_BITFIELDCLUSTER = 30 /* bitfields + padding */
 } UA_DataTypeKind;
 
+#pragma pack(1)
 struct UA_DataType {
 #ifdef UA_ENABLE_TYPEDESCRIPTION
     const char *typeName;
@@ -1052,6 +1053,7 @@ struct UA_DataType {
     UA_UInt32 membersSize : 8;  /* How many members does the type have? */
     UA_DataTypeMember *members;
 };
+#pragma pack()
 
 /* Datatype arrays with custom type definitions can be added in a linked list to
  * the client or server configuration. */
