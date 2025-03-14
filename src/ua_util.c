@@ -11,6 +11,10 @@
  * unit for the generated code from UA_INLINABLE definitions. */
 #define UA_INLINABLE_IMPL 1
 
+#if defined(_WIN32)
+#include <Windows.h>
+#endif
+
 #include <open62541/types_generated_handling.h>
 #include <open62541/util.h>
 

@@ -72,6 +72,9 @@ UA_PKI_decryptPrivateKey(const UA_ByteString privateKey,
                          const UA_ByteString password,
                          UA_ByteString *outDerKey);
 
+UA_StatusCode UA_EXPORT
+UA_GetCertificateURI(const UA_ByteString *certificate, UA_String *subjectURI);
+
 _UA_END_DECLS
 
 #endif /* UA_PLUGIN_PKI_H_ */
