@@ -12,13 +12,9 @@
  * the easy generation of the filtered event types.
  */
 
-#ifdef AMALGAN
-#include "open62541.h"
-#else
 #include <open62541/plugin/log_stdout.h>
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
-#endif
 
 #include <signal.h>
 #include <stdlib.h>
@@ -50,12 +46,12 @@ static UA_StatusCode
 addSampleEventTypes(UA_Server *server) {
     eventTypes = (UA_NodeId *)
         UA_Array_new(SAMPLE_EVENT_TYPES_COUNT, &UA_TYPES[UA_TYPES_NODEID]);
-    UA_StatusCode retval = addEventType(server, "BaseEventTypeSample",
+    UA_StatusCode retval = addEventType(server, "SampleBaseEventType",
                                         UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE),
                                         UA_NODEID_NUMERIC(1, 5000),
                                         &eventTypes[0]);
     if (retval != UA_STATUSCODE_GOOD) return retval;
-    retval = addEventType(server, "BaseEventTypeSampleDeviceFailure",
+    retval = addEventType(server, "SampleDeviceFailureEventType",
                           UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE),
                           UA_NODEID_NUMERIC(1, 5001),
                           &eventTypes[1]);
@@ -65,12 +61,12 @@ addSampleEventTypes(UA_Server *server) {
                           UA_NODEID_NUMERIC(1, 5002),
                           &eventTypes[2]);
     if (retval != UA_STATUSCODE_GOOD) return retval;
-    retval = addEventType(server, "BaseEventTypeSampleProgress",
+    retval = addEventType(server, "SampleProgressEventType",
                           UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE),
                           UA_NODEID_NUMERIC(1, 5003),
                           &eventTypes[3]);
     if (retval != UA_STATUSCODE_GOOD) return retval;
-    retval = addEventType(server, "BaseEventTypeSampleAuditSecurity",
+    retval = addEventType(server, "SampleAuditSecurityEventType",
                           UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE),
                           UA_NODEID_NUMERIC(1, 5004),
                           &eventTypes[4]);

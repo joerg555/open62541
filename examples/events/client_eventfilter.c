@@ -12,15 +12,11 @@
  *
  * */
 
-#ifdef AMALGAN
-//#include "open62541.h"
-#else
 #include <open62541/client.h>
 #include <open62541/client_config_default.h>
 #include <open62541/client_subscriptions.h>
 #include <open62541/plugin/log_stdout.h>
 #include <open62541/util.h>
-#endif
 
 #include <signal.h>
 
