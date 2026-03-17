@@ -332,7 +332,8 @@ mbedtlsCheckRevoked(CertInfo *ci, mbedtls_x509_crt *cert) {
         if(mbedtlsSameName(issuerName, &crl->issuer)) {
             if(mbedtls_x509_crt_is_revoked(cert, crl) != 0)
                 return UA_STATUSCODE_BADCERTIFICATEREVOKED;
-            res = UA_STATUSCODE_GOOD; /* There was at least one crl that did not revoke (so far) */
+            res = UA_STATUSCODE_GOOD; /* There was at least one crl that did not revoke
+                                         (so far) */
         }
     }
     return res;
@@ -496,6 +497,64 @@ certificateVerification_verify(void *verificationContext,
     return ret;
 }
 
+/* Find X509_SAN from x509 subject_alt_names or other
+ * return:
+ * -
+ * UA_STATUSCODE_BADNOTFOUND if not found
+ * - UA_STATUSCODE_GOOD and in seq pointer and
+ * len of item in the certificate
+ * The memory is owned by mbedtls, so it is valid as
+ * long as the certificate is valid. 
+ * Do not free it. */
+static UA_StatusCode
+find_x509_sequence(const mbedtls_x509_sequence *cur, int x509_san_type,
+                           UA_String *seq) {
+    UA_StatusCode rc = UA_STATUSCODE_BADNOTFOUND;
+    // Dont loop forever, if there are too many SANs, something is wrong
+    int cnt;
+    for(cnt = 0; cnt < 100 && cur != NULL; cnt++) {
+        mbedtls_x509_subject_alternative_name san;
+        memset(&san, 0, sizeof(san));
+        int parse_ret = mbedtls_x509_parse_subject_alt_name(&cur->buf, &san);
+        if(parse_ret != 0) {
+            cur = cur->next;
+            continue;
+        }
+        if(san.type == x509_san_type) {
+            seq->length = san.san.unstructured_name.len;
+            seq->data = san.san.unstructured_name.p;
+            rc = UA_STATUSCODE_GOOD;
+            break;
+        }
+        cur = cur->next;
+    }
+    return rc;
+}
+
+/* Find the urn:XXXXX Unirform Resource Identifyer  from UA certificate
+ * return:
+ * - UA_STATUSCODE_GOOD and copy of URI in subjectURI
+ * - UA_UA_STATUSCODE_BADXXX if not found */
+UA_StatusCode UA_EXPORT
+UA_GetCertificateURI(const UA_ByteString *certificate, UA_String *subjectURI) {
+    UA_StatusCode st = UA_STATUSCODE_BADNOTFOUND;
+    // make it with '\0' at the end
+    UA_ByteString cdata = copyDataFormatAware(certificate);
+    mbedtls_x509_crt cert;
+    mbedtls_x509_crt_init(&cert);
+    if(mbedtls_x509_crt_parse(&cert, cdata.data, cdata.length) == 0) {
+        UA_String urn = UA_STRING_NULL;
+        find_x509_sequence(&cert.subject_alt_names, MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER, &urn);
+        if(urn.length > 0) {
+            UA_String_copy(&urn, subjectURI);
+            st = UA_STATUSCODE_GOOD;
+        }
+    }
+    mbedtls_x509_crt_free(&cert);
+    UA_ByteString_clear(&cdata);
+    return st;
+}
+
 static UA_StatusCode
 certificateVerification_verifyApplicationURI(void *verificationContext,
                                              const UA_ByteString *certificate,
@@ -511,17 +570,17 @@ certificateVerification_verifyApplicationURI(void *verificationContext,
                                          certificate->length);
     if(mbedErr)
         return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+    UA_String remote_urn = UA_STRING_NULL;
+    UA_StatusCode retval;
 
-    /* Poor man's ApplicationUri verification. mbedTLS does not parse all fields
-     * of the Alternative Subject Name. Instead test whether the URI-string is
-     * present in the v3_ext field in general.
-     *
-     * TODO: Improve parsing of the Alternative Subject Name */
-    UA_StatusCode retval = UA_STATUSCODE_GOOD;
-    if(UA_Bstrstr(remoteCertificate.v3_ext.p, remoteCertificate.v3_ext.len,
-               applicationURI->data, applicationURI->length) == NULL)
+    /* find URN */
+    retval = mbedtls_find_x509_sequence(&remoteCertificate.subject_alt_names,
+                                        MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER,
+                                        &remote_urn);
+    if(retval == UA_STATUSCODE_GOOD &&
+       UA_String_equal(&remote_urn, applicationURI) == false) {
         retval = UA_STATUSCODE_BADCERTIFICATEURIINVALID;
-
+    }
     mbedtls_x509_crt_free(&remoteCertificate);
     return retval;
 }

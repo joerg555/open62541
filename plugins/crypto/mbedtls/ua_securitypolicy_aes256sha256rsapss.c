@@ -206,7 +206,7 @@ asym_decrypt_sp_aes256sha256rsapss(Aes256Sha256RsaPss_ChannelContext *cc,
     if(cc == NULL || data == NULL)
         return UA_STATUSCODE_BADINTERNALERROR;
     return mbedtls_decrypt_rsaOaep(&cc->policyContext->localPrivateKey,
-                                   &cc->policyContext->drbgContext, data, MBEDTLS_MD_SHA256);
+                                   &cc->policyContext->drbgContext, data);
 }
 
 static size_t
