@@ -681,17 +681,20 @@ UA_CertificateVerification_Verify(void *verificationContext,
     return ret;
 }
 
+/* Find the urn:XXXXX Unirform Resource Identifyer  from UA certificate
+ * subjectURI must be UA_STRING_NULL
+ * return:
+ * - UA_STATUSCODE_GOOD and copy of URI in subjectURI
+ * - UA_STATUSCODE_BADXXX if not found */
 UA_StatusCode UA_EXPORT
 UA_GetCertificateURI(const UA_ByteString* certificate, UA_String* subjectURI)
 {
-    const unsigned char *pData;
     X509 *certificateX509;
     GENERAL_NAMES *pNames;
     int i;
     UA_StatusCode rc = UA_STATUSCODE_GOOD;
 
-    pData = certificate->data;
-    if(certificate->length == 0 || pData == NULL) {
+    if(certificate->length == 0 || certificate->data == NULL) {
         return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
     }
 
@@ -706,18 +709,10 @@ UA_GetCertificateURI(const UA_ByteString* certificate, UA_String* subjectURI)
         for(i = 0; i < sk_GENERAL_NAME_num(pNames); i++) {
             GENERAL_NAME *value = sk_GENERAL_NAME_value(pNames, i);
             if(value->type == GEN_URI) {
-                if(subjectURI->length > 0)
-                    UA_String_clear(subjectURI);
-                subjectURI->length = (size_t)value->d.ia5->length;
-                subjectURI->data = (UA_Byte *)UA_malloc(subjectURI->length);
-                if(subjectURI->data == NULL) {
-                    subjectURI->length = 0;
-                    rc = UA_STATUSCODE_BADSECURITYCHECKSFAILED;
-                }
-                else {
-                    memcpy(subjectURI->data, (const char *)value->d.ia5->data,
-                           subjectURI->length);
-                }
+                UA_String uri;
+                uri.length = (size_t)value->d.ia5->length;
+                uri.data = value->d.ia5->data;
+                UA_String_copy(&uri, subjectURI);
                 break;
             }
         }
@@ -734,58 +729,26 @@ UA_CertificateVerification_VerifyApplicationURI (void *                verificat
                                                  const UA_ByteString * certificate,
                                                  const UA_String *     applicationURI) {
     (void) verificationContext;
-
-    const unsigned char * pData;
-    X509 *                certificateX509;
-    UA_String             subjectURI = UA_STRING_NULL;
-    GENERAL_NAMES *       pNames;
-    int                   i;
-    UA_StatusCode         ret;
-
-    pData = certificate->data;
-    if (pData == NULL) {
-        return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
-    }
-
-    certificateX509 = UA_OpenSSL_LoadCertificate(certificate);
-    if (certificateX509 == NULL) {
-        return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
-    }
-
-    pNames = (GENERAL_NAMES *) X509_get_ext_d2i(certificateX509, NID_subject_alt_name, 
-                                                NULL, NULL);
-    if (pNames == NULL) {
-        X509_free (certificateX509);
-        return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
-    }
-    
+    UA_String subjectURI = UA_STRING_NULL;
+    UA_StatusCode ret;
     UA_String_init(&subjectURI);
-    
-    for (i = 0; i < sk_GENERAL_NAME_num (pNames); i++) {
-         GENERAL_NAME * value = sk_GENERAL_NAME_value (pNames, i);
-         if (value->type == GEN_URI) {
-             subjectURI.length = (size_t) (value->d.ia5->length);
-             subjectURI.data = (UA_Byte *) UA_malloc (subjectURI.length);
-             if (subjectURI.data == NULL) {
-                 X509_free (certificateX509);
-                 sk_GENERAL_NAME_pop_free(pNames, GENERAL_NAME_free);
-                 return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
-             }
-             (void) memcpy (subjectURI.data, value->d.ia5->data, subjectURI.length);
-             break;
-         }
 
+    ret = UA_GetCertificateURI(certificate, &subjectURI);
+    if (ret != UA_STATUSCODE_GOOD) {
+        return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
     }
 
     ret = UA_STATUSCODE_GOOD;
-    if (UA_Bstrstr (subjectURI.data, subjectURI.length,
+    /* only exact URI is accepted */
+    if (UA_String_equal(&subjectURI, applicationURI) == false)
+        ret = UA_STATUSCODE_BADCERTIFICATEURIINVALID;
+    /*
+    if (UA_Bstrstr(subjectURI.data, subjectURI.length,
                     applicationURI->data, applicationURI->length) == NULL) {
         ret = UA_STATUSCODE_BADCERTIFICATEURIINVALID;
     }
-
-    X509_free (certificateX509);
-    sk_GENERAL_NAME_pop_free(pNames, GENERAL_NAME_free);
-    UA_String_clear (&subjectURI);
+    */
+    UA_String_clear(&subjectURI);
     return ret;
 }
 

@@ -532,9 +532,10 @@ find_x509_sequence(const mbedtls_x509_sequence *cur, int x509_san_type,
 }
 
 /* Find the urn:XXXXX Unirform Resource Identifyer  from UA certificate
+ * subjectURI must be UA_STRING_NULL
  * return:
  * - UA_STATUSCODE_GOOD and copy of URI in subjectURI
- * - UA_UA_STATUSCODE_BADXXX if not found */
+ * - UA_STATUSCODE_BADXXX if not found */
 UA_StatusCode UA_EXPORT
 UA_GetCertificateURI(const UA_ByteString *certificate, UA_String *subjectURI) {
     UA_StatusCode st = UA_STATUSCODE_BADNOTFOUND;
@@ -573,14 +574,13 @@ certificateVerification_verifyApplicationURI(void *verificationContext,
     UA_String remote_urn = UA_STRING_NULL;
     UA_StatusCode retval;
 
-    /* find URN */
+    /* find SAN for URN */
     retval = mbedtls_find_x509_sequence(&remoteCertificate.subject_alt_names,
                                         MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER,
                                         &remote_urn);
-    if(retval == UA_STATUSCODE_GOOD &&
-       UA_String_equal(&remote_urn, applicationURI) == false) {
+    /* only exact URI is accepted */
+    if(retval == UA_STATUSCODE_GOOD && UA_String_equal(&remote_urn, applicationURI) == false)
         retval = UA_STATUSCODE_BADCERTIFICATEURIINVALID;
-    }
     mbedtls_x509_crt_free(&remoteCertificate);
     return retval;
 }
