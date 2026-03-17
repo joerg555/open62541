@@ -575,7 +575,7 @@ certificateVerification_verifyApplicationURI(void *verificationContext,
     UA_StatusCode retval;
 
     /* find SAN for URN */
-    retval = mbedtls_find_x509_sequence(&remoteCertificate.subject_alt_names,
+    retval = find_x509_sequence(&remoteCertificate.subject_alt_names,
                                         MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER,
                                         &remote_urn);
     /* only exact URI is accepted */
