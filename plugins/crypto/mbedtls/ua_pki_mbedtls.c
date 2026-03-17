@@ -22,19 +22,6 @@
 #define UA_MBEDTLS_MAX_CHAIN_LENGTH 10
 #define UA_MBEDTLS_MAX_DN_LENGTH 256
 
-/* Find binary substring. Taken and adjusted from
- * http://tungchingkai.blogspot.com/2011/07/binary-strstr.html */
-
-static const unsigned char *
-bstrchr(const unsigned char *s, const unsigned char ch, size_t l) {
-    /* find first occurrence of c in char s[] for length l*/
-    for(; l > 0; ++s, --l) {
-        if(*s == ch)
-            return s;
-    }
-    return NULL;
-}
-
 // mbedTLS expects PEM data to be null terminated
 // The data length parameter must include the null terminator
 static UA_ByteString copyDataFormatAware(const UA_ByteString *data)
