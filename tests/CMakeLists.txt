@@ -103,6 +103,7 @@ if(UA_ENABLE_ENCRYPTION_MBEDTLS)
        ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_securitypolicy_basic256.c
        ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_securitypolicy_basic256sha256.c
        ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_securitypolicy_aes128sha256rsaoaep.c
+       ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_securitypolicy_aes256sha256rsapss.c
        ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_pki_mbedtls.c)
 endif()
 
@@ -114,6 +115,7 @@ if(UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_ENCRYPTION_LIBRESSL)
               ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_basic256.c
               ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_basic256sha256.c
               ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_aes128sha256rsaoaep.c
+              ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_aes256sha256rsapss.c
               ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_create_certificate.c
               ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_pki_openssl.c)
 endif()
