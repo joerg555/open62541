@@ -513,15 +513,16 @@ find_x509_subalt_sequence(mbedtls_x509_crt *pcrt, int x509_san_type, UA_String *
 #ifndef MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER
     /* mbed 2.6 ubuntu pur mans search stuff*/
 #define MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER 6
-    const unsigned char *purn;
-    if((purn = UA_Bstrstr(pcrt->v3_ext.p, pcrt->v3_ext.len, "urn:", 4)) != NULL) {
-        if(purn > pcrt->v3_ext.p + 2) {
+    unsigned char *purn;
+    unsigned char *pv3ext = pcrt->v3_ext.p;
+    if((purn = UA_Bstrstr(pv3ext, pcrt->v3_ext.len, (const unsigned char *)"urn:", 4)) != NULL) {
+        if(purn > pv3ext + 2) {
             purn -= 2;
             if(*purn == (0x80 | x509_san_type)) {
                 purn++;
                 size_t n = *purn;
                 // Dont find Stuff
-                size_t nMax = pcrt->v3_ext.len -(purn - pcrt->v3_ext.p);
+                size_t nMax = pcrt->v3_ext.len - (size_t)(purn - pv3ext);
                 if (n < nMax) {
                     purn++;
                     seq->data = (UA_Byte *)purn;
@@ -601,6 +602,7 @@ certificateVerification_verifyApplicationURI(void *verificationContext,
 
     UA_String remote_urn = UA_STRING_NULL;
     UA_StatusCode retval = GetCertificateURI(certificate, &remote_urn);
+    /* only exact URI is accepted */
     if (retval == UA_STATUSCODE_GOOD &&
        UA_String_equal(&remote_urn, applicationURI) == false)
         retval = UA_STATUSCODE_BADCERTIFICATEURIINVALID;
