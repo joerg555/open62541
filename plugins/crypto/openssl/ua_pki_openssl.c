@@ -694,19 +694,19 @@ UA_GetCertificateURI(const UA_ByteString* certificate, UA_String* subjectURI)
     int i;
     UA_StatusCode rc = UA_STATUSCODE_GOOD;
 
-    if(certificate->length == 0 || certificate->data == NULL) {
+    if (certificate->length == 0 || certificate->data == NULL) {
         return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
     }
 
     certificateX509 = UA_OpenSSL_LoadCertificate(certificate);
-    if(certificateX509 == NULL) {
+    if (certificateX509 == NULL) {
         return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
     }
 
     pNames = (GENERAL_NAMES *)X509_get_ext_d2i(certificateX509, NID_subject_alt_name,
                                                NULL, NULL);
-    if(pNames != NULL) {
-        for(i = 0; i < sk_GENERAL_NAME_num(pNames); i++) {
+    if (pNames != NULL) {
+        for (i = 0; i < sk_GENERAL_NAME_num(pNames); i++) {
             GENERAL_NAME *value = sk_GENERAL_NAME_value(pNames, i);
             if(value->type == GEN_URI) {
                 UA_String uri;
@@ -742,12 +742,6 @@ UA_CertificateVerification_VerifyApplicationURI (void *                verificat
     /* only exact URI is accepted */
     if (UA_String_equal(&subjectURI, applicationURI) == false)
         ret = UA_STATUSCODE_BADCERTIFICATEURIINVALID;
-    /*
-    if (UA_Bstrstr(subjectURI.data, subjectURI.length,
-                    applicationURI->data, applicationURI->length) == NULL) {
-        ret = UA_STATUSCODE_BADCERTIFICATEURIINVALID;
-    }
-    */
     UA_String_clear(&subjectURI);
     return ret;
 }
