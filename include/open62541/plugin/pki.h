@@ -48,6 +48,9 @@ struct UA_CertificateVerification {
     void (*clear)(UA_CertificateVerification *cv);
 };
 
+UA_StatusCode UA_EXPORT
+UA_GetCertificateURI(const UA_ByteString *certificate, UA_String *subjectURI);
+
 _UA_END_DECLS
 
 #endif /* UA_PLUGIN_PKI_H_ */
