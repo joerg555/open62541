@@ -22,45 +22,6 @@
 #define UA_MBEDTLS_MAX_CHAIN_LENGTH 10
 #define UA_MBEDTLS_MAX_DN_LENGTH 256
 
-/* Find binary substring. Taken and adjusted from
- * http://tungchingkai.blogspot.com/2011/07/binary-strstr.html */
-
-static const unsigned char *
-bstrchr(const unsigned char *s, const unsigned char ch, size_t l) {
-    /* find first occurrence of c in char s[] for length l*/
-    for(; l > 0; ++s, --l) {
-        if(*s == ch)
-            return s;
-    }
-    return NULL;
-}
-
-static const unsigned char *
-UA_Bstrstr(const unsigned char *s1, size_t l1, const unsigned char *s2, size_t l2) {
-    /* find first occurrence of s2[] in s1[] for length l1*/
-    const unsigned char *ss1 = s1;
-    const unsigned char *ss2 = s2;
-    /* handle special case */
-    if(l1 == 0)
-        return NULL;
-    if(l2 == 0)
-        return s1;
-
-    /* match prefix */
-    for (; (s1 = bstrchr(s1, *s2, (uintptr_t)ss1-(uintptr_t)s1+(uintptr_t)l1)) != NULL &&
-             (uintptr_t)ss1-(uintptr_t)s1+(uintptr_t)l1 != 0; ++s1) {
-
-        /* match rest of prefix */
-        const unsigned char *sc1, *sc2;
-        for (sc1 = s1, sc2 = s2; ;)
-            if (++sc2 >= ss2+l2)
-                return s1;
-            else if (*++sc1 != *sc2)
-                break;
-    }
-    return NULL;
-}
-
 // mbedTLS expects PEM data to be null terminated
 // The data length parameter must include the null terminator
 static UA_ByteString copyDataFormatAware(const UA_ByteString *data)
@@ -496,6 +457,38 @@ certificateVerification_verify(void *verificationContext,
     return ret;
 }
 
+#ifndef MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER
+/* mbed 2.6 ubuntu pur mans search stuff*/
+#define MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER 6
+
+/* Find binary substring. Taken and adjusted from
+ * http://tungchingkai.blogspot.com/2011/07/binary-strstr.html */
+
+static unsigned char*
+UA_BstrFind(unsigned char* s1, size_t l1, const unsigned char* s2, size_t l2) {
+    /* find first occurrence of s2[] in s1[] for length l1*/
+    /* handle special case */
+    if (l1 == 0)
+        return NULL;
+    if (l2 == 0)
+        return s1;
+    for (; l1 > 0; s1++, l1--) {
+        /* match prefix */
+        if (*s1 == *s2) {
+            /* match rest of prefix */
+            unsigned char* sc1;
+            const unsigned char* sc2;
+            for (sc1 = s1, sc2 = s2;;) {
+                if (++sc2 >= s2 + l2)
+                    return s1;
+                if (*++sc1 != *sc2)
+                    break;
+            }
+        }
+    }
+    return NULL;
+}
+
 /* Find X509_SAN from x509 subject_alt_names or other
  * return:
  * -
@@ -509,41 +502,55 @@ static UA_StatusCode
 find_x509_subalt_sequence(mbedtls_x509_crt *pcrt, int x509_san_type, UA_String *seq) {
 
     UA_StatusCode rc = UA_STATUSCODE_BADNOTFOUND;
-#ifndef MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER
-    /* mbed 2.6 ubuntu pur mans search stuff*/
-#define MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER 6
-    const unsigned char *purn;
-    if((purn = UA_Bstrstr(pcrt->v3_ext.p, pcrt->v3_ext.len, "urn:", 4)) != NULL) {
-        if(purn > pcrt->v3_ext.p + 2) {
+    unsigned char* purn;
+    unsigned char* pv3ext = pcrt->v3_ext.p;
+    if ((purn = UA_BstrFind(pv3ext, pcrt->v3_ext.len, (const unsigned char*)"urn:", 4)) !=
+        NULL) {
+        if (purn > pv3ext + 2) {
             purn -= 2;
-            if(*purn == (0x80 | x509_san_type)) {
+            if (*purn == (0x80 | x509_san_type)) {
                 purn++;
                 size_t n = *purn;
                 // Dont find Stuff
-                size_t nMax = pcrt->v3_ext.len -(purn - pcrt->v3_ext.p);
+                size_t nMax = pcrt->v3_ext.len - (size_t)(purn - pv3ext);
                 if (n < nMax) {
                     purn++;
-                    seq->data = (UA_Byte *)purn;
+                    seq->data = (UA_Byte*)purn;
                     seq->length = n;
                     rc = UA_STATUSCODE_GOOD;
                 }
             }
         }
     }
+    return rc;
+}
 
 #else
-    const mbedtls_x509_sequence *cur = &pcrt->subject_alt_names;
+
+/* Find X509_SAN from x509 subject_alt_names or other
+ * return:
+ * -
+ * UA_STATUSCODE_BADNOTFOUND if not found
+ * - UA_STATUSCODE_GOOD and in seq pointer and
+ * len of item in the certificate
+ * The memory is owned by mbedtls, so it is valid as
+ * long as the certificate is valid.
+ * Do not free it. */
+static UA_StatusCode
+find_x509_subalt_sequence(mbedtls_x509_crt* pcrt, int x509_san_type, UA_String* seq) {
+    UA_StatusCode rc = UA_STATUSCODE_BADNOTFOUND;
+    const mbedtls_x509_sequence* cur = &pcrt->subject_alt_names;
     // Dont loop forever, if there are too many SANs, something is wrong
     int cnt;
-    for(cnt = 0; cnt < 100 && cur != NULL; cnt++) {
+    for (cnt = 0; cnt < 100 && cur != NULL; cnt++) {
         mbedtls_x509_subject_alternative_name san;
         memset(&san, 0, sizeof(san));
         int parse_ret = mbedtls_x509_parse_subject_alt_name(&cur->buf, &san);
-        if(parse_ret != 0) {
+        if (parse_ret != 0) {
             cur = cur->next;
             continue;
         }
-        if(san.type == x509_san_type) {
+        if (san.type == x509_san_type) {
             seq->length = san.san.unstructured_name.len;
             seq->data = san.san.unstructured_name.p;
             rc = UA_STATUSCODE_GOOD;
@@ -551,9 +558,9 @@ find_x509_subalt_sequence(mbedtls_x509_crt *pcrt, int x509_san_type, UA_String *
         }
         cur = cur->next;
     }
-#endif
     return rc;
 }
+#endif
 
 /* Find the urn:XXXXX Uniform Resource Identifier from UA certificate
  * subjectURI must be UA_STRING_NULL
@@ -561,16 +568,15 @@ find_x509_subalt_sequence(mbedtls_x509_crt *pcrt, int x509_san_type, UA_String *
  * - UA_STATUSCODE_GOOD and copy of URI in subjectURI
  * - UA_STATUSCODE_BADXXX if not found */
 
-static UA_StatusCode 
-GetCertificateURI(const UA_ByteString *certdata, UA_String *subjectURI) {
+static UA_StatusCode
+GetCertificateURI(const UA_ByteString* certdata, UA_String* subjectURI) {
     UA_StatusCode st = UA_STATUSCODE_BADNOTFOUND;
     mbedtls_x509_crt cert;
     mbedtls_x509_crt_init(&cert);
-    if(mbedtls_x509_crt_parse(&cert, certdata->data, certdata->length) == 0) {
+    if (mbedtls_x509_crt_parse(&cert, certdata->data, certdata->length) == 0) {
         UA_String urn = UA_STRING_NULL;
-        find_x509_subalt_sequence(&cert, MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER,
-                                  &urn);
-        if(urn.length > 0) {
+        find_x509_subalt_sequence(&cert, MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER, &urn);
+        if (urn.length > 0) {
             UA_String_copy(&urn, subjectURI);
             st = UA_STATUSCODE_GOOD;
         }
@@ -581,7 +587,7 @@ GetCertificateURI(const UA_ByteString *certdata, UA_String *subjectURI) {
 
 
 UA_StatusCode UA_EXPORT
-UA_GetCertificateURI(const UA_ByteString *certificate, UA_String *subjectURI) {
+UA_GetCertificateURI(const UA_ByteString* certificate, UA_String* subjectURI) {
     // make it with '\0' at the end
     UA_ByteString cdata = copyDataFormatAware(certificate);
     UA_StatusCode st = GetCertificateURI(&cdata, subjectURI);
@@ -601,8 +607,7 @@ certificateVerification_verifyApplicationURI(void *verificationContext,
     UA_String remote_urn = UA_STRING_NULL;
     UA_StatusCode retval = GetCertificateURI(certificate, &remote_urn);
     /* only exact URI is accepted */
-    if (retval == UA_STATUSCODE_GOOD &&
-       UA_String_equal(&remote_urn, applicationURI) == false)
+    if (retval == UA_STATUSCODE_GOOD && UA_String_equal(&remote_urn, applicationURI) == false)
         retval = UA_STATUSCODE_BADCERTIFICATEURIINVALID;
     return retval;
 }
