@@ -214,13 +214,35 @@ signCreateSessionResponse(UA_Server *server, UA_SecureChannel *channel,
     return retval;
 }
 
+/* Remove the oldest Session that has not completed ActivateSession yet. Such
+ * a Session is not yet an authenticated client and, like an un-activated
+ * Session pinning a SecureChannel, must not be allowed to exhaust the Session
+ * table and block CreateSession for everyone else. The list is ordered
+ * newest-first, so keep scanning to the end to find the oldest match. */
+static UA_Boolean
+purgeOldestUnactivatedSession(UA_Server *server) {
+    session_list_entry *sentry, *oldest = NULL;
+    LIST_FOREACH(sentry, &server->sessions, pointers) {
+        if(!sentry->session.activated)
+            oldest = sentry;
+    }
+    if(!oldest)
+        return false;
+    UA_LOG_INFO_SESSION(&server->config.logger, &oldest->session,
+                        "Session was purged since maxSessions was reached "
+                        "and the Session was not yet activated");
+    UA_Server_removeSession(server, oldest, UA_DIAGNOSTICEVENT_PURGE);
+    return true;
+}
+
 /* Creates and adds a session. But it is not yet attached to a secure channel. */
 UA_StatusCode
 UA_Server_createSession(UA_Server *server, UA_SecureChannel *channel,
                         const UA_CreateSessionRequest *request, UA_Session **session) {
     UA_LOCK_ASSERT(&server->serviceMutex, 1);
 
-    if(server->sessionCount >= server->config.maxSessions) {
+    if(server->sessionCount >= server->config.maxSessions &&
+       !purgeOldestUnactivatedSession(server)) {
         UA_LOG_WARNING_CHANNEL(&server->config.logger, channel,
                                "Could not create a Session - Server limits reached");
         return UA_STATUSCODE_BADTOOMANYSESSIONS;
@@ -234,7 +256,7 @@ UA_Server_createSession(UA_Server *server, UA_SecureChannel *channel,
     /* Initialize the Session */
     UA_Session_init(&newentry->session);
     newentry->session.sessionId = UA_NODEID_GUID(1, UA_Guid_random());
-    newentry->session.header.authenticationToken = UA_NODEID_GUID(1, UA_Guid_random());
+    newentry->session.header.authenticationToken = UA_NODEID_GUID(1, UA_Guid_secureRandom());
 
     newentry->session.timeout = server->config.maxSessionTimeout;
     if(request->requestedSessionTimeout <= server->config.maxSessionTimeout &&
@@ -599,6 +621,39 @@ saveClientUserId(const UA_ExtensionObject *userIdentityToken,
 }
 #endif
 
+/* Derive an identifier of the user from the UserIdentityToken. It is used to
+ * detect whether a Session is re-activated for a different user. The identifier
+ * is empty for the anonymous user and for issued tokens. There is no generic
+ * way to derive an identifier from an issued token. They are distinguished from
+ * the anonymous user via the token type. */
+static UA_StatusCode
+getClientUserId(const UA_ExtensionObject *userIdentityToken,
+                UA_UserTokenType tokenType, UA_String *clientUserId) {
+    UA_String_init(clientUserId);
+    if(tokenType == UA_USERTOKENTYPE_ANONYMOUS ||
+       tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
+        return UA_STATUSCODE_GOOD;
+
+    if(userIdentityToken->encoding != UA_EXTENSIONOBJECT_DECODED &&
+       userIdentityToken->encoding != UA_EXTENSIONOBJECT_DECODED_NODELETE)
+        return UA_STATUSCODE_BADIDENTITYTOKENINVALID;
+
+    if(tokenType == UA_USERTOKENTYPE_USERNAME) {
+        const UA_UserNameIdentityToken *userToken = (UA_UserNameIdentityToken*)
+            userIdentityToken->content.decoded.data;
+        return UA_String_copy(&userToken->userName, clientUserId);
+    }
+
+    /* The subject name of the user certificate is not extracted. Use the entire
+     * certificate to identify the user. */
+    if(tokenType == UA_USERTOKENTYPE_CERTIFICATE) {
+        const UA_X509IdentityToken *userCertToken = (UA_X509IdentityToken*)
+            userIdentityToken->content.decoded.data;
+        return UA_ByteString_copy(&userCertToken->certificateData, clientUserId);
+    }
+
+    return UA_STATUSCODE_GOOD;
+}
 
 /* TODO: Check all of the following: The Server shall verify that the
  * Certificate the Client used to create the new SecureChannel is the same as
@@ -615,6 +670,7 @@ Service_ActivateSession(UA_Server *server, UA_SecureChannel *channel,
     const UA_EndpointDescription *ed = NULL;
     const UA_UserTokenPolicy *utp = NULL;
     UA_String *tmpLocaleIds;
+    UA_String clientUserId = UA_STRING_NULL;
     UA_LOCK_ASSERT(&server->serviceMutex, 1);
 
     UA_Session *session = getSessionByToken(server, &request->requestHeader.authenticationToken);
@@ -797,6 +853,24 @@ Service_ActivateSession(UA_Server *server, UA_SecureChannel *channel,
     }
 #endif
 
+    /* The user of an active Session cannot be replaced. Reject the change
+     * before invoking access control so that the plugin cannot mutate the
+     * existing Session context. Re-activation with the same user is
+     * supported. */
+    response->responseHeader.serviceResult =
+        getClientUserId(&request->userIdentityToken, utp->tokenType, &clientUserId);
+    if(response->responseHeader.serviceResult != UA_STATUSCODE_GOOD)
+        goto securityRejected;
+
+    if(session->activated &&
+       (utp->tokenType != session->userTokenType ||
+        !UA_String_equal(&clientUserId, &session->clientUserId))) {
+        UA_LOG_WARNING_SESSION(&server->config.logger, session, "ActivateSession: "
+                               "Changing the user of an active Session is not supported");
+        response->responseHeader.serviceResult = UA_STATUSCODE_BADIDENTITYCHANGENOTSUPPORTED;
+        goto securityRejected;
+    }
+
     /* Callback into userland access control */
     UA_UNLOCK(&server->serviceMutex);
     response->responseHeader.serviceResult = server->config.accessControl.
@@ -855,6 +929,12 @@ Service_ActivateSession(UA_Server *server, UA_SecureChannel *channel,
         server->serverDiagnosticsSummary.cumulatedSessionCount++;
     }
 
+    /* Store the user of the Session */
+    UA_String_clear(&session->clientUserId);
+    session->clientUserId = clientUserId;
+    UA_String_init(&clientUserId);
+    session->userTokenType = utp->tokenType;
+
 #ifdef UA_ENABLE_DIAGNOSTICS
     saveClientUserId(&request->userIdentityToken,
                      &session->securityDiagnostics);
@@ -882,6 +962,7 @@ Service_ActivateSession(UA_Server *server, UA_SecureChannel *channel,
 securityRejected:
     server->serverDiagnosticsSummary.securityRejectedSessionCount++;
 rejected:
+    UA_String_clear(&clientUserId);
     server->serverDiagnosticsSummary.rejectedSessionCount++;
 }
 

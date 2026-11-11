@@ -363,6 +363,10 @@ add_executable(check_session server/check_session.c $<TARGET_OBJECTS:open62541-o
 target_link_libraries(check_session ${LIBS})
 add_test_valgrind(session ${TESTS_BINARY_DIR}/check_session)
 
+add_executable(check_session_authtoken_rng server/check_session_authtoken_rng.c $<TARGET_OBJECTS:open62541-object> $<TARGET_OBJECTS:open62541-testplugins>)
+target_link_libraries(check_session_authtoken_rng ${LIBS})
+add_test_valgrind(session_authtoken_rng ${TESTS_BINARY_DIR}/check_session_authtoken_rng)
+
 add_executable(check_server server/check_server.c $<TARGET_OBJECTS:open62541-object> $<TARGET_OBJECTS:open62541-testplugins>)
 target_link_libraries(check_server ${LIBS})
 add_test_valgrind(server ${TESTS_BINARY_DIR}/check_server)
@@ -386,9 +390,32 @@ if(UA_ENABLE_SUBSCRIPTIONS)
 endif()
 
 if(UA_ENABLE_DISCOVERY)
-    add_executable(check_discovery server/check_discovery.c $<TARGET_OBJECTS:open62541-object> $<TARGET_OBJECTS:open62541-testplugins>)
-    target_link_libraries(check_discovery ${LIBS})
-    add_test_valgrind(discovery ${TESTS_BINARY_DIR}/check_discovery)
+    # RegisterServer(2) requires an authenticated SecureChannel. The test
+    # generates its client certificate with UA_CreateCertificate, which is only
+    # available with OpenSSL/LibreSSL.
+    if(UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_ENCRYPTION_LIBRESSL)
+        add_executable(check_discovery server/check_discovery.c $<TARGET_OBJECTS:open62541-object> $<TARGET_OBJECTS:open62541-testplugins>)
+        target_link_libraries(check_discovery ${LIBS})
+        add_test_valgrind(discovery ${TESTS_BINARY_DIR}/check_discovery)
+    endif()
+    if(UA_ENABLE_DISCOVERY_MULTICAST AND NOT WIN32)
+        add_executable(check_findservers_on_network
+                       server/check_findservers_on_network.c
+                       $<TARGET_OBJECTS:open62541-object>
+                       $<TARGET_OBJECTS:open62541-testplugins>)
+        target_link_libraries(check_findservers_on_network ${LIBS})
+        add_test_valgrind(findservers_on_network
+                         ${TESTS_BINARY_DIR}/check_findservers_on_network)
+        if(UA_ENABLE_MALLOC_SINGLETON)
+            add_executable(check_discovery_mdns_alloc
+                           server/check_discovery_mdns_alloc.c
+                           $<TARGET_OBJECTS:open62541-object>
+                           $<TARGET_OBJECTS:open62541-testplugins>)
+            target_link_libraries(check_discovery_mdns_alloc ${LIBS})
+            add_test_valgrind(discovery_mdns_alloc
+                              ${TESTS_BINARY_DIR}/check_discovery_mdns_alloc)
+        endif()
+    endif()
 endif()
 
 if(UA_ENABLE_PUBSUB)
@@ -631,6 +658,11 @@ if(UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_ENCRYPTION_LIBRESSL)
     add_executable(check_cert_generation encryption/check_cert_generation.c $<TARGET_OBJECTS:open62541-object> $<TARGET_OBJECTS:open62541-testplugins>)
     target_link_libraries(check_cert_generation ${LIBS})
     add_test_valgrind(check_cert_generation ${TESTS_BINARY_DIR}/check_cert_generation)
+
+    add_executable(check_hmac_verify_constanttime encryption/check_hmac_verify_constanttime.c $<TARGET_OBJECTS:open62541-object> $<TARGET_OBJECTS:open62541-testplugins>)
+    target_include_directories(check_hmac_verify_constanttime PRIVATE ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl)
+    target_link_libraries(check_hmac_verify_constanttime ${LIBS})
+    add_test_valgrind(check_hmac_verify_constanttime ${TESTS_BINARY_DIR}/check_hmac_verify_constanttime)
 endif()
 
 # Tests for Nodeset Compiler

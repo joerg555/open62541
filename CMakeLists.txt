@@ -43,7 +43,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # overwritten with more detailed information if git is available.
 set(OPEN62541_VER_MAJOR 1)
 set(OPEN62541_VER_MINOR 3)
-set(OPEN62541_VER_PATCH 19)
+set(OPEN62541_VER_PATCH 23)
 set(OPEN62541_VER_LABEL "-undefined") # like "-rc1" or "-g4538abcd" or "-g4538abcd-dirty"
 set(OPEN62541_VER_COMMIT "unknown-commit")
 
@@ -418,7 +418,7 @@ if(UA_ENABLE_PUBSUB_BUFMALLOC)
     endif()
 endif()
 
-option(UA_ENABLE_PUBSUB_MQTT "Enable publish/subscribe with mqtt (experimental)" OFF)
+option(UA_ENABLE_PUBSUB_MQTT "Enable publish/subscribe with mqtt (experimental, MQTT-C is deprecated)" OFF)
 mark_as_advanced(UA_ENABLE_PUBSUB_MQTT)
 if(UA_ENABLE_PUBSUB_MQTT)
     if(NOT UA_FILE_MQTT)
@@ -427,6 +427,10 @@ if(UA_ENABLE_PUBSUB_MQTT)
     if(NOT EXISTS "${UA_FILE_MQTT}")
         message(FATAL_ERROR "File ${UA_FILE_MQTT} not found.You probably need to initialize the git submodule for deps/mqtt-c.Therefore execute the following command \ngit submodule update --init --recursive")
     else()
+        message(WARNING "The MQTT-C library used for PubSub over MQTT (UA_ENABLE_PUBSUB_MQTT) is DEPRECATED. "
+                        "The upstream project is barely maintained and has known, unfixed issues. "
+                        "Only use MQTT-C with a trusted broker over a protected connection. "
+                        "The open62541 master branch offers a libwebsockets-based MQTT implementation (UA_ENABLE_LWS_MQTT) as an alternative.")
         # Warn if run in Windows
         if(WIN32)
             MESSAGE(WARNING "Multithreading is enabled in MQTT plugin. This feature is under development and marked as EXPERIMENTAL")
@@ -601,25 +605,23 @@ include(linting_build)
 
 list(APPEND open62541_LIBRARIES "")
 
+if(WIN32)
+    # bcrypt provides BCryptGenRandom, used as a random source for
+    # identifiers that must not repeat across server processes
+    list(APPEND open62541_LIBRARIES bcrypt)
+endif()
+
 if(UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_MQTT_TLS_OPENSSL)
     # use the OpenSSL encryption library
     # https://cmake.org/cmake/help/v3.0/module/FindOpenSSL.html
     find_package(OpenSSL REQUIRED)
     list(APPEND open62541_LIBRARIES "${OPENSSL_LIBRARIES}")
-    if(WIN32)
-        # Add bestcrypt for windows systems
-        list(APPEND open62541_LIBRARIES bcrypt)
-    endif()
 endif()
 
 if(UA_ENABLE_ENCRYPTION_LIBRESSL)
     # See https://github.com/libressl-portable/portable/blob/master/FindLibreSSL.cmake
     find_package(LibreSSL REQUIRED)
     list(APPEND open62541_LIBRARIES ${LIBRESSL_LIBRARIES})
-    if(WIN32)
-        # Add bestcrypt for random generator
-        list(APPEND open62541_LIBRARIES bcrypt)
-    endif()
 endif()
 
 if(UA_ENABLE_ENCRYPTION_MBEDTLS OR UA_ENABLE_PUBSUB_ENCRYPTION)
@@ -628,10 +630,6 @@ if(UA_ENABLE_ENCRYPTION_MBEDTLS OR UA_ENABLE_PUBSUB_ENCRYPTION)
     # defined in /tools/cmake/FindMbedTLS.cmake.
     find_package(MbedTLS REQUIRED)
     list(APPEND open62541_LIBRARIES ${MBEDTLS_LIBRARIES})
-    if(WIN32)
-        # Add bestcrypt for windows systems
-        list(APPEND open62541_LIBRARIES bcrypt)
-    endif()
 endif()
 
 if(UA_ENABLE_TPM2_SECURITY)

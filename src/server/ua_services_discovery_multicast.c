@@ -199,9 +199,10 @@ void Service_FindServersOnNetwork(UA_Server *server, UA_Session *session,
         return;
     }
 
-    /* Iterate over all records and add to filtered list */
+    /* Count the records matching the filter. Do not allocate a cache-sized
+     * temporary array on the stack. The service mutex keeps the list stable
+     * between this pass and the copy pass below. */
     UA_UInt32 filteredCount = 0;
-    UA_STACKARRAY(UA_ServerOnNetwork*, filtered, recordCount);
     serverOnNetwork_list_entry* current;
     LIST_FOREACH(current, &server->discoveryManager.serverOnNetwork, pointers) {
         if(filteredCount >= recordCount)
@@ -211,24 +212,42 @@ void Service_FindServersOnNetwork(UA_Server *server, UA_Session *session,
         if(!entryMatchesCapabilityFilter(request->serverCapabilityFilterSize,
                                request->serverCapabilityFilter, current))
             continue;
-        filtered[filteredCount++] = &current->serverOnNetwork;
+        filteredCount++;
     }
 
     if(filteredCount == 0)
         return;
 
     /* Allocate the array for the response */
-    response->servers =
-        (UA_ServerOnNetwork*)UA_malloc(sizeof(UA_ServerOnNetwork)*filteredCount);
+    response->servers = (UA_ServerOnNetwork*)
+        UA_Array_new(filteredCount, &UA_TYPES[UA_TYPES_SERVERONNETWORK]);
     if(!response->servers) {
         response->responseHeader.serviceResult = UA_STATUSCODE_BADOUTOFMEMORY;
         return;
     }
     response->serversSize = filteredCount;
 
-    /* Copy the server names */
-    for(size_t i = 0; i < filteredCount; i++)
-        UA_ServerOnNetwork_copy(filtered[i], &response->servers[filteredCount-i-1]);
+    /* Copy the server names in the same oldest-to-newest order as before */
+    size_t pos = filteredCount;
+    LIST_FOREACH(current, &server->discoveryManager.serverOnNetwork, pointers) {
+        if(pos == 0)
+            break;
+        if(current->serverOnNetwork.recordId < request->startingRecordId)
+            continue;
+        if(!entryMatchesCapabilityFilter(request->serverCapabilityFilterSize,
+                                         request->serverCapabilityFilter, current))
+            continue;
+        UA_StatusCode retval = UA_ServerOnNetwork_copy(&current->serverOnNetwork,
+                                                        &response->servers[--pos]);
+        if(retval != UA_STATUSCODE_GOOD) {
+            UA_Array_delete(response->servers, response->serversSize,
+                            &UA_TYPES[UA_TYPES_SERVERONNETWORK]);
+            response->servers = NULL;
+            response->serversSize = 0;
+            response->responseHeader.serviceResult = retval;
+            return;
+        }
+    }
 }
 
 void
@@ -385,6 +404,8 @@ UA_Discovery_multicastQuery(UA_Server* server) {
     return UA_STATUSCODE_GOOD;
 }
 
+#define UA_DISCOVERYURL_PATH_CAPACITY 1024
+
 UA_StatusCode
 UA_Discovery_addRecord(UA_Server *server, const UA_String *servername,
                        const UA_String *hostname, UA_UInt16 port,
@@ -398,6 +419,11 @@ UA_Discovery_addRecord(UA_Server *server, const UA_String *servername,
 
     if(capabilitiesSize > 0 && !capabilites)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
+
+    /* Reject oversized paths before they reach a stack allocation or any
+     * discovery state is modified. */
+    if(path->length >= UA_DISCOVERYURL_PATH_CAPACITY)
+        return UA_STATUSCODE_BADOUTOFRANGE;
 
     size_t hostnameLen = hostname->length;
     size_t servernameLen = servername->length;
@@ -508,7 +534,7 @@ UA_Discovery_addRecord(UA_Server *server, const UA_String *servername,
     mdns_set_address_record(server, fullServiceDomain, localDomain);
 
     // TXT record: [servername]-[hostname]._opcua-tcp._tcp.local. TXT path=/ caps=NA,DA,...
-    UA_STACKARRAY(char, pathChars, path->length + 1);
+    char pathChars[UA_DISCOVERYURL_PATH_CAPACITY];
     if(createTxt) {
         if(path->length > 0)
             memcpy(pathChars, path->data, path->length);

@@ -62,12 +62,26 @@ CK_BBOOL pkcs11_find_object_by_label(UA_PubSubSecurityPolicy *policy, CK_SESSION
             };
             /* Obtains the value of one or more attributes of an object*/
             rv = (UA_StatusCode)C_GetAttributeValue(hSession, hObject, attrTemplate, 1);
-            if (attrTemplate[0].ulValueLen > 0)
+            if (attrTemplate[0].ulValueLen > 0) {
                 attrTemplate[0].pValue = (char *)UA_malloc(attrTemplate[0].ulValueLen);
+                if (!attrTemplate[0].pValue) {
+                    UA_LOG_ERROR(policy->logger, UA_LOGCATEGORY_SECURITYPOLICY,
+                                 "Unable to allocate memory");
+                    returnValue = UA_FALSE;
+                    break;
+                }
+            }
             /* Obtains the value of one or more attributes of an object*/
             rv = (UA_StatusCode)C_GetAttributeValue(hSession, hObject, attrTemplate, 1);
             if (attrTemplate[0].ulValueLen > 0) {
                 char * val = (char *)UA_malloc(attrTemplate[0].ulValueLen + 1);
+                if (!val) {
+                    UA_LOG_ERROR(policy->logger, UA_LOGCATEGORY_SECURITYPOLICY,
+                                 "Unable to allocate memory");
+                    UA_free(attrTemplate[0].pValue);
+                    returnValue = UA_FALSE;
+                    break;
+                }
                 strncpy(val, (const char*)attrTemplate[0].pValue, attrTemplate[0].ulValueLen);
                 val[attrTemplate[0].ulValueLen] = '\0';
                 if (strncmp(val, label, attrTemplate[0].ulValueLen) == 0) {
@@ -263,6 +277,13 @@ channelContext_newContext_sp_pubsub_aes128ctr_tpm(void *policyContext,
                                                   const UA_ByteString *keyNonce,
                                                   void **wgContext) {
 
+    if(!signingKey || !encryptingKey || !keyNonce || !wgContext ||
+       keyNonce->length != UA_AES128CTR_KEYNONCE_LENGTH ||
+       ((signingKey->length != 0 || encryptingKey->length != 0) &&
+        (signingKey->length != sizeof(unsigned long) ||
+         encryptingKey->length != sizeof(unsigned long))))
+        return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+
     /* Allocate the channel context */
     PUBSUB_AES128CTR_ChannelContext *cc = (PUBSUB_AES128CTR_ChannelContext *)
         UA_calloc(1, sizeof(PUBSUB_AES128CTR_ChannelContext));
@@ -296,11 +317,14 @@ channelContext_newContext_sp_pubsub_aes128ctr_tpm(void *policyContext,
             return rv;
         }
     } else {
-        memcpy(&cc->encryptingKeyHandle, encryptingKey->data, sizeof(encryptingKey));
-        memcpy(&cc->signingKeyHandle, signingKey->data, sizeof(signingKey));
+        memcpy(&cc->encryptingKeyHandle, encryptingKey->data,
+               sizeof(cc->encryptingKeyHandle));
+        memcpy(&cc->signingKeyHandle, signingKey->data,
+               sizeof(cc->signingKeyHandle));
     }
 
-    memcpy(&cc->keyNonceHandle, keyNonce->data, keyNonce->length);
+    memcpy(&cc->keyNonceHandle, keyNonce->data,
+           UA_AES128CTR_KEYNONCE_LENGTH);
 
     *wgContext = cc;
 
@@ -389,9 +413,9 @@ encrypt_sp_pubsub_aes128ctr_tpm(const PUBSUB_AES128CTR_ChannelContext *cc, UA_By
     if(cc == NULL || data == NULL)
         return UA_STATUSCODE_BADINTERNALERROR;
 
-    CK_BYTE sizeToEncrypt;
-    int partNumber     = 0;
-    CK_ULONG decLen    = 16;
+    size_t sizeToEncrypt;
+    size_t partOffset  = 0;
+    CK_ULONG decLen    = 0;
     CK_BYTE final      = 0;
     CK_ULONG finalLen  = 0;
     UA_StatusCode rv   = UA_STATUSCODE_GOOD;
@@ -409,32 +433,41 @@ encrypt_sp_pubsub_aes128ctr_tpm(const PUBSUB_AES128CTR_ChannelContext *cc, UA_By
     memcpy(params_encrupt_128.cb, counterBlockEncrypt, sizeof(params_encrupt_128.cb));
     CK_MECHANISM mech_128 = {CKM_AES_CTR, &params_encrupt_128, sizeof(params_encrupt_128)};
 
+    /* Allocate first, so that no error path leaves the operation active */
+    CK_BYTE *cipherText = (CK_BYTE*)UA_malloc(data->length > 0 ? data->length : 1);
+    if(!cipherText)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+
     /* Initializes an encryption operation */
     rv = (UA_StatusCode)C_EncryptInit(cc->policyContext->sessionHandle, &mech_128, cc->encryptingKeyHandle);
     if (rv != UA_STATUSCODE_GOOD) {
          UA_LOG_ERROR(cc->policyContext->securityPolicy->logger, UA_LOGCATEGORY_SECURITYPOLICY,
                       "Encrypt initialization failed 0x%.8lX", (long unsigned int)rv);
+        UA_free(cipherText);
         return rv;
     }
 
-    if ((data->length % MAX_ENCRYPTION_SIZE) != 0)
-        sizeToEncrypt = (CK_BYTE)(data->length + (MAX_ENCRYPTION_SIZE - (data->length % MAX_ENCRYPTION_SIZE)));
-    else
-        sizeToEncrypt = (CK_BYTE)data->length;
+    /* AES-CTR is a stream cipher: process exactly data->length bytes, no rounding
+     * or padding. Each PKCS#11 call is given the caller's own buffer directly,
+     * chunked at MAX_ENCRYPTION_SIZE with a shorter final chunk when data->length
+     * is not itself a multiple of MAX_ENCRYPTION_SIZE. */
+    sizeToEncrypt = data->length;
 
-    CK_BYTE *cipherText = (CK_BYTE*)UA_malloc(sizeToEncrypt * sizeof(CK_BYTE));
-    while(rv == UA_STATUSCODE_GOOD && partNumber * MAX_ENCRYPTION_SIZE <= sizeToEncrypt - MAX_ENCRYPTION_SIZE) {
+    while(rv == UA_STATUSCODE_GOOD && partOffset < sizeToEncrypt) {
+        CK_ULONG chunkLen = (CK_ULONG)((sizeToEncrypt - partOffset < MAX_ENCRYPTION_SIZE)
+                                       ? (sizeToEncrypt - partOffset) : MAX_ENCRYPTION_SIZE);
+        decLen = chunkLen;
         /* Continues a multiple-part encryption operation, processing another data part */
         rv = (UA_StatusCode)C_EncryptUpdate(cc->policyContext->sessionHandle,
-                                            &data->data[partNumber*MAX_ENCRYPTION_SIZE], MAX_ENCRYPTION_SIZE,
-                                            &cipherText[partNumber*MAX_ENCRYPTION_SIZE], &decLen);
+                                            &data->data[partOffset], chunkLen,
+                                            &cipherText[partOffset], &decLen);
         if (UA_STATUSCODE_GOOD != rv) {
              UA_LOG_ERROR(cc->policyContext->securityPolicy->logger, UA_LOGCATEGORY_SECURITYPOLICY,
                          "Encrypt update failed 0x%.8lX", (long unsigned int)rv);
             goto cleanup;
         }
 
-        partNumber++;
+        partOffset += chunkLen;
     }
 
     /* Finishes a multiple-part encryption operation */
@@ -445,8 +478,7 @@ encrypt_sp_pubsub_aes128ctr_tpm(const PUBSUB_AES128CTR_ChannelContext *cc, UA_By
         goto cleanup;
     }
 
-    for (int i=0; i< sizeToEncrypt; i++)
-        data->data[i] = cipherText[i];
+    memcpy(data->data, cipherText, sizeToEncrypt);
 
 cleanup:
     UA_free(cipherText);
@@ -460,11 +492,11 @@ decrypt_sp_pubsub_aes128ctr_tpm(const PUBSUB_AES128CTR_ChannelContext *cc, UA_By
         return UA_STATUSCODE_BADINTERNALERROR;
 
     UA_StatusCode rv          = UA_STATUSCODE_GOOD;
-    int decodePartNumber      = 0;
-    CK_ULONG decodeDecLen     = 16;
+    size_t decodePartOffset   = 0;
+    CK_ULONG decodeDecLen     = 0;
     CK_BYTE decodeFinal       = 0;
     CK_ULONG decodeFinalLen   = 0;
-    CK_BYTE sizeToDecrypt;
+    size_t sizeToDecrypt;
     CK_AES_CTR_PARAMS params_decrypt_128;
 
     /* Prepare the counterBlock required for decryption */
@@ -479,24 +511,32 @@ decrypt_sp_pubsub_aes128ctr_tpm(const PUBSUB_AES128CTR_ChannelContext *cc, UA_By
     memcpy(params_decrypt_128.cb, counterBlockDecrypt, sizeof(params_decrypt_128.cb));
     CK_MECHANISM mech_128 = {CKM_AES_CTR, &params_decrypt_128, sizeof(params_decrypt_128)};
 
+    /* Allocate first, so that no error path leaves the operation active */
+    CK_BYTE *decodeCiphertext = (CK_BYTE*)UA_malloc(data->length > 0 ? data->length : 1);
+    if(!decodeCiphertext)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+
     rv = (UA_StatusCode)C_DecryptInit(cc->policyContext->sessionHandle, &mech_128, cc->encryptingKeyHandle);
     if (rv != UA_STATUSCODE_GOOD) {
         UA_LOG_ERROR(cc->policyContext->securityPolicy->logger, UA_LOGCATEGORY_SECURITYPOLICY,
                      "Decrypt init failed 0x%.8lX", (long unsigned int)rv);
+        UA_free(decodeCiphertext);
         return rv;
     }
 
-    if ((data->length % MAX_ENCRYPTION_SIZE) != 0)
-        sizeToDecrypt = (CK_BYTE)(data->length + (MAX_ENCRYPTION_SIZE - (data->length % MAX_ENCRYPTION_SIZE)));
-    else
-        sizeToDecrypt = (CK_BYTE)data->length;
+    /* AES-CTR is a stream cipher: process exactly data->length bytes, no rounding
+     * or padding. Each PKCS#11 call is given the caller's own buffer directly,
+     * chunked at MAX_ENCRYPTION_SIZE with a shorter final chunk when data->length
+     * is not itself a multiple of MAX_ENCRYPTION_SIZE. */
+    sizeToDecrypt = data->length;
 
-    CK_BYTE *decodeCiphertext = (CK_BYTE*)UA_malloc(sizeToDecrypt * sizeof(CK_BYTE));
-
-    while(rv == UA_STATUSCODE_GOOD && decodePartNumber * MAX_ENCRYPTION_SIZE <= sizeToDecrypt - MAX_ENCRYPTION_SIZE) {
+    while(rv == UA_STATUSCODE_GOOD && decodePartOffset < sizeToDecrypt) {
+        CK_ULONG chunkLen = (CK_ULONG)((sizeToDecrypt - decodePartOffset < MAX_ENCRYPTION_SIZE)
+                                       ? (sizeToDecrypt - decodePartOffset) : MAX_ENCRYPTION_SIZE);
+        decodeDecLen = chunkLen;
         rv = (UA_StatusCode)C_DecryptUpdate(cc->policyContext->sessionHandle,
-                                            &data->data[decodePartNumber*MAX_ENCRYPTION_SIZE], MAX_ENCRYPTION_SIZE,
-                                            &decodeCiphertext[decodePartNumber*MAX_ENCRYPTION_SIZE], &decodeDecLen);
+                                            &data->data[decodePartOffset], chunkLen,
+                                            &decodeCiphertext[decodePartOffset], &decodeDecLen);
 
         if (rv != UA_STATUSCODE_GOOD) {
             UA_LOG_ERROR(cc->policyContext->securityPolicy->logger, UA_LOGCATEGORY_SECURITYPOLICY,
@@ -504,7 +544,7 @@ decrypt_sp_pubsub_aes128ctr_tpm(const PUBSUB_AES128CTR_ChannelContext *cc, UA_By
             goto cleanup;
         }
 
-        decodePartNumber++;
+        decodePartOffset += chunkLen;
     }
 
     rv = (UA_StatusCode)C_DecryptFinal(cc->policyContext->sessionHandle, &decodeFinal, &decodeFinalLen);
@@ -514,8 +554,7 @@ decrypt_sp_pubsub_aes128ctr_tpm(const PUBSUB_AES128CTR_ChannelContext *cc, UA_By
         goto cleanup;
     }
 
-    for (int i=0; i< sizeToDecrypt; i++)
-        data->data[i] = decodeCiphertext[i];
+    memcpy(data->data, decodeCiphertext, sizeToDecrypt);
 
 cleanup:
     UA_free(decodeCiphertext);
@@ -547,9 +586,18 @@ channelContext_setKeys_sp_pubsub_aes128ctr_tpm(PUBSUB_AES128CTR_ChannelContext *
                                                const UA_ByteString *encryptingKey,
                                                const UA_ByteString *keyNonce) {
 
-    memcpy(&cc->encryptingKeyHandle, encryptingKey->data, sizeof(encryptingKey));
-    memcpy(&cc->signingKeyHandle, signingKey->data, sizeof(signingKey));
-    memcpy(&cc->keyNonceHandle, keyNonce->data, sizeof(keyNonce));
+    if(!cc || !signingKey || !encryptingKey || !keyNonce ||
+       signingKey->length != sizeof(cc->signingKeyHandle) ||
+       encryptingKey->length != sizeof(cc->encryptingKeyHandle) ||
+       keyNonce->length != UA_AES128CTR_KEYNONCE_LENGTH)
+        return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+
+    memcpy(&cc->encryptingKeyHandle, encryptingKey->data,
+           sizeof(cc->encryptingKeyHandle));
+    memcpy(&cc->signingKeyHandle, signingKey->data,
+           sizeof(cc->signingKeyHandle));
+    memcpy(&cc->keyNonceHandle, keyNonce->data,
+           UA_AES128CTR_KEYNONCE_LENGTH);
     return UA_STATUSCODE_GOOD;
 }
 
